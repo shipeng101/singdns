@@ -1,0 +1,24 @@
+{
+  "mode": "rule",
+  "inbound": {
+    "listen": "",
+    "port": 10800,
+    "socks_port": 1080,
+    "http_port": 8118,
+    "username": "",
+    "password": "",
+    "enable_tun": false,
+    "enable_transparent": false,
+    "set_system_proxy": false,
+    "transparent_port": 0,
+    "tun_interface": "",
+    "tun_address": "",
+    "tun_mtu": 0,
+    "tun_auto_route": false,
+    "tun_strict_route": false,
+    "tun_stack": "",
+    "tun_endpoint_independent_nat": false
+  },
+  "rules": [],
+  "nodes": null
+}

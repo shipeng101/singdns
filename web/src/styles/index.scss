@@ -1,0 +1,101 @@
+// 变量
+:root {
+  // 主题色
+  --primary-color: var(--el-color-primary);
+  --success-color: var(--el-color-success);
+  --warning-color: var(--el-color-warning);
+  --danger-color: var(--el-color-danger);
+  --info-color: var(--el-color-info);
+
+  // 背景色
+  --bg-color: var(--el-bg-color);
+  --bg-color-overlay: var(--el-bg-color-overlay);
+
+  // 文字颜色
+  --text-color: var(--el-text-color-primary);
+  --text-color-secondary: var(--el-text-color-secondary);
+  --text-color-placeholder: var(--el-text-color-placeholder);
+
+  // 边框颜色
+  --border-color: var(--el-border-color);
+  --border-color-light: var(--el-border-color-light);
+  --border-color-lighter: var(--el-border-color-lighter);
+
+  // 阴影
+  --box-shadow: var(--el-box-shadow);
+  --box-shadow-light: var(--el-box-shadow-light);
+  --box-shadow-lighter: var(--el-box-shadow-lighter);
+}
+
+// 暗色主题
+html.dark {
+  color-scheme: dark;
+}
+
+// 全局样式
+body {
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+// 卡片样式
+.card {
+  background-color: var(--bg-color-overlay);
+  border-radius: 8px;
+  box-shadow: var(--box-shadow-light);
+  padding: 20px;
+}
+
+// 页面标题
+.page-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+// 工具栏
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+}
+
+// 表格样式
+.table-container {
+  margin-bottom: 20px;
+}
+
+// 分页样式
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+// 表单样式
+.form-container {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+// 加载状态
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+} 

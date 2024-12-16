@@ -1,0 +1,34 @@
+# 编译输出
+/bin/
+/dist/
+*.exe
+*.dll
+*.so
+*.dylib
+singdns
+
+# 依赖目录
+/vendor/
+/node_modules/
+web/node_modules/
+web/dist/
+
+# IDE 文件
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# 日志文件
+/logs/
+*.log
+
+# 配置文件
+/config/*.yaml
+!/config/config.yaml
+
+# 临时文件
+*.tmp
+*.temp
+.env 

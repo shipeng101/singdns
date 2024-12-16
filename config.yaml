@@ -1,0 +1,42 @@
+dns:
+  listen: 127.0.0.1:10053
+  upstream:
+    - tcp://8.8.8.8:53
+    - tcp://8.8.4.4:53
+  china_dns:
+    - tcp://223.5.5.5:53
+    - tcp://119.29.29.29:53
+  rules:
+    - domain: "*.test"
+      target: reject
+      enabled: true
+    - domain: "*.cn"
+      target: direct
+      enabled: true
+
+http:
+  listen: 127.0.0.1:8080
+
+server:
+  host: 127.0.0.1
+  port: 8080
+
+log:
+  file: logs/singdns.log
+  level: debug
+  max_size: 10
+  max_backups: 5
+  max_age: 7
+  compress: true
+
+proxy:
+  mode: global
+  inbound:
+    socks_port: 1080
+    http_port: 8118
+    tproxy_port: 7777
+    mixed_port: 8888
+  outbound:
+    direct_strategy: prefer-ipv4
+    proxy_strategy: prefer-ipv4
+  rules: [] 

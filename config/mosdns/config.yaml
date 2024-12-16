@@ -1,0 +1,65 @@
+api:
+  http:
+    listen: 0.0.0.0:10053
+log:
+  console: true
+  file: logs/mosdns.log
+  level: debug
+plugins:
+- args:
+    upstream:
+    - https://dns.alidns.com/dns-query
+    - https://doh.pub/dns-query
+    - https://dns.rubyfish.cn/dns-query
+    bootstrap:
+    - 202.102.154.3:53
+    timeout: 5
+  tag: forward_local
+  type: forward
+- args:
+    upstream:
+    - https://dns.google/dns-query
+    - https://cloudflare-dns.com/dns-query
+    bootstrap:
+    - 202.102.154.3:53
+    timeout: 5
+  tag: forward_remote
+  type: forward
+- args:
+    files:
+    - rules/adblock.txt
+  tag: adblock
+  type: blocklist
+- args:
+    files:
+    - rules/china-list.txt
+  tag: china_sites
+  type: domain_set
+- args:
+    files:
+    - rules/proxy-list.txt
+  tag: proxy_sites
+  type: domain_set
+- args:
+    primary: forward_local
+    secondary: forward_remote
+    domain_set:
+    - china_sites
+    concurrent: true
+  tag: query_local_dns
+  type: sequence
+- args:
+    primary: forward_remote
+    secondary: forward_local
+    domain_set:
+    - proxy_sites
+    concurrent: true
+  tag: query_remote_dns
+  type: sequence
+- args:
+    rules:
+    - query_local_dns if qname in china_sites
+    - query_remote_dns if qname in proxy_sites
+    - forward_remote
+  tag: router
+  type: router

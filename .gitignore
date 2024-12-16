@@ -1,34 +1,42 @@
-# 编译输出
-/bin/
-/dist/
+# Binaries for programs and plugins
 *.exe
+*.exe~
 *.dll
 *.so
 *.dylib
-singdns
 
-# 依赖目录
-/vendor/
-/node_modules/
-web/node_modules/
-web/dist/
+# Test binary, built with `go test -c`
+*.test
 
-# IDE 文件
-.idea/
-.vscode/
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+vendor/
+
+# Go workspace file
+go.work
+
+# IDE specific files
+.idea
+.vscode
 *.swp
 *.swo
-.DS_Store
 
-# 日志文件
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+/core/
 /logs/
 *.log
-
-# 配置文件
-/config/*.yaml
-!/config/config.yaml
-
-# 临时文件
-*.tmp
-*.temp
-.env 
+/config/*.json
+/config/mosdns/rules/
+/web/node_modules/
+/web/dist/

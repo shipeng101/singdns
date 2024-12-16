@@ -17,44 +17,36 @@ func NewConfigGenerator() *ConfigGenerator {
 }
 
 // Generate 生成配置
-func (g *ConfigGenerator) Generate(cfg types.ProxyConfig, node *types.ProxyNode) ([]byte, error) {
-	// 创建基础配置
-	config := map[string]interface{}{
+func (g *ConfigGenerator) Generate(config types.ProxyConfig, currentNode *types.ProxyNode) ([]byte, error) {
+	// 设置默认监听地址
+	listen := config.Inbound.Listen
+	if listen == "" {
+		listen = "127.0.0.1"
+	}
+
+	// 基础配置
+	cfg := map[string]interface{}{
 		"log": map[string]interface{}{
 			"level":     "info",
 			"timestamp": true,
 		},
-		"inbounds": []map[string]interface{}{
-			{
-				"type":        "mixed",
-				"tag":         "mixed-in",
-				"listen":      cfg.Inbound.Listen,
-				"listen_port": cfg.Inbound.Port,
-				"sniff":       true,
-			},
-		},
-		"outbounds": []map[string]interface{}{},
-		"route": map[string]interface{}{
-			"rules": []map[string]interface{}{
-				{
-					"protocol": []string{"dns"},
-					"outbound": "dns-out",
-				},
-			},
-			"auto_detect_interface": true,
-			"final":                 "direct",
-		},
 		"dns": map[string]interface{}{
 			"servers": []map[string]interface{}{
 				{
-					"tag":     "local",
-					"address": "223.5.5.5",
-					"detour":  "direct",
+					"tag":              "local",
+					"address":          "223.5.5.5",
+					"address_resolver": "dns-direct",
+					"detour":           "direct",
 				},
 				{
-					"tag":     "remote",
-					"address": "8.8.8.8",
-					"detour":  "proxy",
+					"tag":              "remote",
+					"address":          "8.8.8.8",
+					"address_resolver": "dns-direct",
+					"detour":           "proxy",
+				},
+				{
+					"tag":     "dns-direct",
+					"address": "223.5.5.5",
 				},
 			},
 			"rules": []map[string]interface{}{
@@ -63,42 +55,88 @@ func (g *ConfigGenerator) Generate(cfg types.ProxyConfig, node *types.ProxyNode)
 					"server":        "local",
 				},
 			},
+			"final":    "remote",
 			"strategy": "prefer_ipv4",
 		},
+		"inbounds": []map[string]interface{}{
+			{
+				"type":        "mixed",
+				"tag":         "mixed-in",
+				"listen":      listen,
+				"listen_port": config.Inbound.Port,
+				"sniff":       true,
+			},
+		},
+		"outbounds": []map[string]interface{}{
+			{
+				"type": "direct",
+				"tag":  "direct",
+			},
+			{
+				"type": "block",
+				"tag":  "block",
+			},
+			{
+				"type": "dns",
+				"tag":  "dns-out",
+			},
+		},
+		"route": map[string]interface{}{
+			"rules": []map[string]interface{}{
+				{
+					"protocol": "dns",
+					"outbound": "dns-out",
+				},
+			},
+			"final": "direct",
+		},
 	}
 
-	// 添加出站配置
-	outbounds := []map[string]interface{}{}
-
-	// 如果有节点配置，添加到出站
-	if node != nil {
-		outbound, err := g.generateNodeOutbound(node)
+	// 如果有当前节点，添加到出站
+	if currentNode != nil {
+		outbound, err := g.generateNodeOutbound(currentNode)
 		if err != nil {
-			return nil, fmt.Errorf("生成节点出站配置失败: %w", err)
+			return nil, fmt.Errorf("生成节点出站配置失败: %v", err)
 		}
+
+		outbounds := cfg["outbounds"].([]map[string]interface{})
 		outbounds = append(outbounds, outbound)
+		cfg["outbounds"] = outbounds
+
+		// 修改路由规则
+		route := cfg["route"].(map[string]interface{})
+		if config.Mode == "global" {
+			route["final"] = currentNode.Name
+		} else if config.Mode == "rule" {
+			rules := route["rules"].([]map[string]interface{})
+			for _, rule := range config.Rules {
+				if !rule.Enabled {
+					continue
+				}
+
+				ruleConfig := map[string]interface{}{
+					"outbound": currentNode.Name,
+				}
+
+				switch rule.Type {
+				case "domain":
+					ruleConfig["domain"] = []string{rule.Value}
+				case "domain_suffix":
+					ruleConfig["domain_suffix"] = []string{rule.Value}
+				case "domain_keyword":
+					ruleConfig["domain_keyword"] = []string{rule.Value}
+				case "ip":
+					ruleConfig["ip_cidr"] = []string{rule.Value}
+				}
+
+				rules = append(rules, ruleConfig)
+			}
+			route["rules"] = rules
+		}
+		cfg["route"] = route
 	}
 
-	// 添加其他基础出站
-	outbounds = append(outbounds,
-		map[string]interface{}{
-			"type": "direct",
-			"tag":  "direct",
-		},
-		map[string]interface{}{
-			"type": "block",
-			"tag":  "block",
-		},
-		map[string]interface{}{
-			"type": "dns",
-			"tag":  "dns-out",
-		},
-	)
-
-	config["outbounds"] = outbounds
-
-	// 序列化配置
-	return json.MarshalIndent(config, "", "  ")
+	return json.MarshalIndent(cfg, "", "  ")
 }
 
 // generateNodeOutbound 生成节点出站配置

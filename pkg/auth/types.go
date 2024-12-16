@@ -31,16 +31,8 @@ type Claims struct {
 	jwt.StandardClaims
 }
 
-// Service 认证服务接口
-type Service interface {
-	GenerateToken(user *User) (string, error)
-	ValidateToken(tokenString string) (*Claims, error)
-	Login(username, password string) (*User, string, error)
-	Register(username, password string) error
-}
-
-// Config 认证服务配置
-type Config struct {
+// AuthConfig 认证服务配置
+type AuthConfig struct {
 	JWTSecret        string `json:"jwt_secret"`         // JWT密钥
 	TokenExpireHours int    `json:"token_expire_hours"` // Token过期时间(小时)
 	AllowRegister    bool   `json:"allow_register"`     // 是否允许注册

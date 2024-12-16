@@ -23,6 +23,7 @@ func RegisterHandlers(r *gin.RouterGroup, subscriptionService types.Subscription
 
 	r.GET("/nodes", h.getNodes)
 	r.POST("/update", h.updateSubscription)
+	r.POST("/select", h.selectNode)
 }
 
 // getNodes 获取节点列表
@@ -51,4 +52,22 @@ func (h *Handler) updateSubscription(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "订阅已更新"})
+}
+
+// selectNode 选择节点
+func (h *Handler) selectNode(c *gin.Context) {
+	var req struct {
+		ID string `json:"id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求参数"})
+		return
+	}
+
+	if err := h.subscriptionService.SelectNode(req.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "节点已选择"})
 }

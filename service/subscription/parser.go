@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/shipeng101/singdns/pkg/types"
+	"github.com/shipeng101/singdns/service/system"
+	"go.uber.org/zap"
 )
 
 // Parser 订阅解析器接口
@@ -66,10 +69,15 @@ func (p *parser) Parse(content string) ([]*types.ProxyNode, error) {
 		}
 
 		if err != nil {
+			system.Warn("解析节点失败",
+				zap.String("line", line),
+				zap.Error(err))
 			continue
 		}
 
 		if node != nil {
+			// 生成节点ID
+			node.ID = fmt.Sprintf("%d", time.Now().UnixNano())
 			nodes = append(nodes, node)
 		}
 	}
@@ -141,9 +149,22 @@ func (p *parser) parseSS(link string) (*types.ProxyNode, error) {
 	// Base64解码
 	decoded, err := base64.StdEncoding.DecodeString(ssStr)
 	if err != nil {
+		// 尝试URL安全的Base64
 		decoded, err = base64.URLEncoding.DecodeString(ssStr)
 		if err != nil {
-			return nil, err
+			// 可能已经是解码后的格式
+			parts := strings.Split(ssStr, "@")
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid ss link format")
+			}
+			methodAndPassword, err := base64.StdEncoding.DecodeString(parts[0])
+			if err != nil {
+				methodAndPassword, err = base64.URLEncoding.DecodeString(parts[0])
+				if err != nil {
+					return nil, err
+				}
+			}
+			decoded = []byte(string(methodAndPassword) + "@" + parts[1])
 		}
 	}
 

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/shipeng101/singdns/pkg/auth"
+	"github.com/shipeng101/singdns/pkg/types"
 )
 
 // LoginRequest 登录请求
@@ -15,9 +15,8 @@ type LoginRequest struct {
 
 // LoginResponse 登录响应
 type LoginResponse struct {
-	Token     string     `json:"token"`
-	ExpiresIn int64      `json:"expires_in"` // 过期时间（秒）
-	User      *auth.User `json:"user"`
+	Success bool   `json:"success"`
+	Message string `json:"message"`
 }
 
 // RegisterRequest 注册请求
@@ -32,11 +31,11 @@ type RegisterResponse struct {
 }
 
 type Handler struct {
-	authService auth.Service
+	authService types.AuthService
 }
 
 // RegisterHandlers 注册认证相关路由
-func RegisterHandlers(r *gin.RouterGroup, authService auth.Service) {
+func RegisterHandlers(r *gin.RouterGroup, authService types.AuthService) {
 	h := &Handler{authService: authService}
 
 	r.POST("/login", h.login)
@@ -51,16 +50,18 @@ func (h *Handler) login(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.authService.Login(req.Username, req.Password)
+	success, err := h.authService.Login(req.Username, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
+		c.JSON(http.StatusUnauthorized, LoginResponse{
+			Success: false,
+			Message: err.Error(),
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, LoginResponse{
-		Token:     token,
-		ExpiresIn: 24 * 60 * 60, // 24小时
-		User:      user,
+		Success: success,
+		Message: "登录成功",
 	})
 }
 
@@ -73,7 +74,7 @@ func (h *Handler) register(c *gin.Context) {
 	}
 
 	if err := h.authService.Register(req.Username, req.Password); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, RegisterResponse{Message: err.Error()})
 		return
 	}
 

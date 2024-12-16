@@ -90,6 +90,14 @@ type Rule struct {
 	Enabled bool   `json:"enabled"` // 是否启用
 }
 
+// DashboardConfig 仪表盘配置
+type DashboardConfig struct {
+	Current     string `json:"current"`      // 当前面板
+	ConfigFile  string `json:"config_file"`  // 配置文件路径
+	ResourceDir string `json:"resource_dir"` // 资源目录
+	APIEndpoint string `json:"api_endpoint"` // API端点
+}
+
 // NewDefaultConfig 创建默认配置
 func NewDefaultConfig() *Config {
 	return &Config{

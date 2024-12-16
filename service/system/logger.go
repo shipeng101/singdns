@@ -1,8 +1,8 @@
 package system
 
 import (
-	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/shipeng101/singdns/pkg/types"
 	"go.uber.org/zap"
@@ -13,86 +13,95 @@ import (
 var logger *zap.Logger
 
 // InitLogger 初始化日志
-func InitLogger(config types.LogConfig) error {
+func InitLogger(config types.LogConfig) {
 	// 创建日志目录
-	if err := os.MkdirAll("logs", 0755); err != nil {
-		return fmt.Errorf("创建日志目录失败: %v", err)
+	logDir := filepath.Dir(config.File)
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		panic(err)
+	}
+
+	// 配置日志轮转
+	hook := &lumberjack.Logger{
+		Filename:   config.File,
+		MaxSize:    config.MaxSize,    // 每个日志文件最大尺寸（MB）
+		MaxBackups: config.MaxBackups, // 保留的旧日志文件最大数量
+		MaxAge:     config.MaxAge,     // 保留的旧日志文件最大天数
+		Compress:   config.Compress,   // 是否压缩旧日志文件
+	}
+
+	// 配置编码器
+	encoderConfig := zapcore.EncoderConfig{
+		TimeKey:        "time",
+		LevelKey:       "level",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		MessageKey:     "msg",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.LowercaseLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.SecondsDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
 
 	// 设置日志级别
 	var level zapcore.Level
 	switch config.Level {
 	case "debug":
-		level = zap.DebugLevel
+		level = zapcore.DebugLevel
 	case "info":
-		level = zap.InfoLevel
+		level = zapcore.InfoLevel
 	case "warn":
-		level = zap.WarnLevel
+		level = zapcore.WarnLevel
 	case "error":
-		level = zap.ErrorLevel
+		level = zapcore.ErrorLevel
 	default:
-		level = zap.InfoLevel
-	}
-
-	// 配置编码器
-	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-
-	// 配置输出
-	consoleEncoder := zapcore.NewConsoleEncoder(encoderConfig)
-	fileEncoder := zapcore.NewJSONEncoder(encoderConfig)
-
-	// 配置日志轮转
-	writer := &lumberjack.Logger{
-		Filename:   config.File,
-		MaxSize:    config.MaxSize,
-		MaxBackups: config.MaxBackups,
-		MaxAge:     config.MaxAge,
-		Compress:   config.Compress,
+		level = zapcore.InfoLevel
 	}
 
 	// 创建核心
-	core := zapcore.NewTee(
-		zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), level),
-		zapcore.NewCore(fileEncoder, zapcore.AddSync(writer), level),
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(encoderConfig),
+		zapcore.NewMultiWriteSyncer(
+			zapcore.AddSync(os.Stdout),
+			zapcore.AddSync(hook),
+		),
+		level,
 	)
 
 	// 创建日志记录器
-	logger = zap.New(core)
-
-	return nil
+	logger = zap.New(core, zap.AddCaller())
 }
 
-// Debug 记录调试日志
+// Debug 记录调试级别日志
 func Debug(msg string, fields ...zap.Field) {
 	if logger != nil {
 		logger.Debug(msg, fields...)
 	}
 }
 
-// Info 记录信息日志
+// Info 记录信息级别日志
 func Info(msg string, fields ...zap.Field) {
 	if logger != nil {
 		logger.Info(msg, fields...)
 	}
 }
 
-// Warn 记录警告日志
+// Warn 记录警告级别日志
 func Warn(msg string, fields ...zap.Field) {
 	if logger != nil {
 		logger.Warn(msg, fields...)
 	}
 }
 
-// Error 记录错误日志
+// Error 记录错误级别日志
 func Error(msg string, fields ...zap.Field) {
 	if logger != nil {
 		logger.Error(msg, fields...)
 	}
 }
 
-// Fatal 记录致命错误日志
+// Fatal 记录致命错误日志并退出程序
 func Fatal(msg string, fields ...zap.Field) {
 	if logger != nil {
 		logger.Fatal(msg, fields...)

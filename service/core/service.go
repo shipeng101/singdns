@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -17,10 +18,10 @@ import (
 
 const (
 	// 核心文件目录
-	CoreDir = "core"
+	CoreDir = "bin"
 	// 默认版本
-	DefaultSingBoxVersion = "1.8.0"
-	DefaultMosDNSVersion  = "v4.5.3"
+	DefaultSingBoxVersion = "1.8.0-rc.1"
+	DefaultMosDNSVersion  = "v5.3.1"
 )
 
 // Service 核心文件管理服务接口
@@ -45,10 +46,14 @@ type service struct {
 
 // NewService 创建核心文件管理服务
 func NewService() Service {
+	osType := runtime.GOOS
+	archType := runtime.GOARCH
 	return &service{
-		coreDir:  CoreDir,
-		osType:   runtime.GOOS,
-		archType: runtime.GOARCH,
+		coreDir:     CoreDir,
+		osType:      osType,
+		archType:    archType,
+		singBoxPath: filepath.Join(CoreDir, "sing-box"),
+		mosDNSPath:  filepath.Join(CoreDir, "mosdns"),
 	}
 }
 
@@ -111,7 +116,7 @@ func (s *service) getSingBoxName() string {
 	if s.osType == "windows" {
 		ext = ".exe"
 	}
-	return fmt.Sprintf("sing-box-%s-%s%s", s.osType, s.archType, ext)
+	return fmt.Sprintf("sing-box%s", ext)
 }
 
 // getMosDNSName 获取mosdns文件名
@@ -120,7 +125,7 @@ func (s *service) getMosDNSName() string {
 	if s.osType == "windows" {
 		ext = ".exe"
 	}
-	return fmt.Sprintf("mosdns-%s-%s%s", s.osType, s.archType, ext)
+	return fmt.Sprintf("mosdns%s", ext)
 }
 
 // checkFileExists 检查文件是否存在
@@ -141,7 +146,7 @@ func (s *service) setExecutable(path string) error {
 func (s *service) downloadSingBox() error {
 	version := DefaultSingBoxVersion
 	url := fmt.Sprintf(
-		"https://github.com/SagerNet/sing-box/releases/download/v%s/sing-box-%s-%s-%s.zip",
+		"https://github.com/SagerNet/sing-box/releases/download/v%s/sing-box-%s-%s-%s.tar.gz",
 		version,
 		version,
 		s.osType,
@@ -153,9 +158,9 @@ func (s *service) downloadSingBox() error {
 		zap.String("url", url))
 
 	// 创建临时文件
-	tmpFile, err := os.CreateTemp("", "sing-box-*.zip")
+	tmpFile, err := os.CreateTemp("", "sing-box-*.tar.gz")
 	if err != nil {
-		return fmt.Errorf("创建临时文件失败: %v", err)
+		return fmt.Errorf("创建临时文件��败: %v", err)
 	}
 	defer os.Remove(tmpFile.Name())
 	defer tmpFile.Close()
@@ -176,41 +181,28 @@ func (s *service) downloadSingBox() error {
 		return fmt.Errorf("保存文件失败: %v", err)
 	}
 
+	// 创建目标目录
+	targetDir := filepath.Dir(s.singBoxPath)
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return fmt.Errorf("创建目标目录失败: %v", err)
+	}
+
 	// 解压文件
-	zipReader, err := zip.OpenReader(tmpFile.Name())
-	if err != nil {
-		return fmt.Errorf("打开zip文件失败: %v", err)
-	}
-	defer zipReader.Close()
-
-	// 查找目标文件
-	var targetFile *zip.File
-	for _, file := range zipReader.File {
-		if strings.Contains(file.Name, "sing-box") && !strings.HasSuffix(file.Name, ".zip") {
-			targetFile = file
-			break
-		}
+	cmd := exec.Command("tar", "xzf", tmpFile.Name(), "-C", targetDir)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("解压文件失败: %v, 输出: %s", err, string(output))
 	}
 
-	if targetFile == nil {
-		return fmt.Errorf("在zip文件中未找到sing-box")
+	// 移动文件到目标位置
+	extractedPath := filepath.Join(targetDir, fmt.Sprintf("sing-box-%s-%s-%s/sing-box", version, s.osType, s.archType))
+	if err := os.Rename(extractedPath, s.singBoxPath); err != nil {
+		return fmt.Errorf("移动文件失败: %v", err)
 	}
 
-	// 解压目标文件
-	src, err := targetFile.Open()
-	if err != nil {
-		return fmt.Errorf("打开zip内文件失败: %v", err)
-	}
-	defer src.Close()
-
-	dest, err := os.OpenFile(s.singBoxPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		return fmt.Errorf("创建目标文件失败: %v", err)
-	}
-	defer dest.Close()
-
-	if _, err := io.Copy(dest, src); err != nil {
-		return fmt.Errorf("解压文件失败: %v", err)
+	// 清理解压目录
+	extractedDir := filepath.Join(targetDir, fmt.Sprintf("sing-box-%s-%s-%s", version, s.osType, s.archType))
+	if err := os.RemoveAll(extractedDir); err != nil {
+		system.Warn("清理解压目录失败", zap.Error(err))
 	}
 
 	system.Info("sing-box下载完成",
@@ -222,6 +214,7 @@ func (s *service) downloadSingBox() error {
 // downloadMosDNS 下载mosdns
 func (s *service) downloadMosDNS() error {
 	version := DefaultMosDNSVersion
+	// 新版本的下载 URL 格式 (v5.x.x 版本使用新的下载地址)
 	url := fmt.Sprintf(
 		"https://github.com/IrineSistiana/mosdns/releases/download/%s/mosdns-%s-%s.zip",
 		version,

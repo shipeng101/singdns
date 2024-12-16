@@ -1,5 +1,6 @@
 {
   "dns": {
+    "final": "remote",
     "rules": [
       {
         "domain_suffix": [
@@ -11,21 +12,27 @@
     "servers": [
       {
         "address": "223.5.5.5",
+        "address_resolver": "dns-direct",
         "detour": "direct",
         "tag": "local"
       },
       {
         "address": "8.8.8.8",
+        "address_resolver": "dns-direct",
         "detour": "proxy",
         "tag": "remote"
+      },
+      {
+        "address": "223.5.5.5",
+        "tag": "dns-direct"
       }
     ],
     "strategy": "prefer_ipv4"
   },
   "inbounds": [
     {
-      "listen": "",
-      "listen_port": 10800,
+      "listen": "127.0.0.1",
+      "listen_port": 7890,
       "sniff": true,
       "tag": "mixed-in",
       "type": "mixed"
@@ -50,14 +57,11 @@
     }
   ],
   "route": {
-    "auto_detect_interface": true,
     "final": "direct",
     "rules": [
       {
         "outbound": "dns-out",
-        "protocol": [
-          "dns"
-        ]
+        "protocol": "dns"
       }
     ]
   }

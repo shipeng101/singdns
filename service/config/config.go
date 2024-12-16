@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/shipeng101/singdns/pkg/types"
@@ -28,6 +29,12 @@ func (s *service) Load() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// 创建配置目录
+	configDir := filepath.Dir(s.configPath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("创建配置目录失败: %v", err)
+	}
+
 	data, err := os.ReadFile(s.configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -47,6 +54,12 @@ func (s *service) Load() error {
 func (s *service) Save() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// 创建配置目录
+	configDir := filepath.Dir(s.configPath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("创建配置目录失败: %v", err)
+	}
 
 	data, err := yaml.Marshal(s.config)
 	if err != nil {

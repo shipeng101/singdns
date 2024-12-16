@@ -1,0 +1,175 @@
+log:
+  level: info
+plugins:
+  - tag: upstreams
+    type: forward
+    args:
+      upstreams:
+        - tag: singbox-dns
+          addr: tcp://127.0.0.1:5354
+          enable_pipeline: false
+
+        - tag: router-dns
+          addr: 10.0.0.1
+
+        - tag: direct-dns1
+          addr: {direct-dns1}
+        - tag: direct-dns2
+          addr: {direct-dns2}
+
+        - tag: google-dns
+          addr: https://dns.google/dns-query
+          socks5: 127.0.0.1:8888
+
+  - tag: hosts
+    type: hosts
+    args:
+      files:
+        - ./custom/hosts
+
+  - tag: proxy_dns
+    type: sequence
+    args:
+      - matches:
+          - "!qtype 1"
+        exec: reject
+      - exec: $upstreams singbox-dns
+      - exec: ttl 1
+
+  - tag: router_dns
+    type: sequence
+    args:
+      - exec: $upstreams router-dns
+
+  - tag: china_dns
+    type: sequence
+    args:
+      - exec: cache 1024
+      - matches:
+          - has_resp
+        exec: accept
+      - exec: $upstreams direct-dns1 direct-dns2
+
+  - tag: local_ip
+    type: ip_set
+    args:
+      files:
+        - ./geo/cn.txt
+
+  - tag: only_cn_dns
+    type: sequence
+    args:
+      - exec: $china_dns
+      - matches: "resp_ip $local_ip"
+        exec: accept
+      - exec: drop_resp
+
+  - tag: pt_sequence
+    type: sequence
+    args:
+      - exec: $upstreams google-dns
+      - exec: accept
+
+  - tag: fallback_dns
+    type: fallback
+    args:
+      primary: only_cn_dns
+      secondary: proxy_dns
+      threshold: 500
+      always_standby: true
+
+  - tag: "cn_match"
+    type: "domain_set"
+    args:
+      files:
+        - ./custom/direct.txt
+        - ./sites/china-list.txt
+        - ./sites/direct-tld-list.txt
+        - ./sites/apple-cn.txt
+
+  - tag: "pt_match"
+    type: "domain_set"
+    args:
+      files:
+        - ./sites/pt.txt
+
+  - tag: "proxy_match"
+    type: "domain_set"
+    args:
+      files:
+        - ./sites/proxy-list.txt
+
+  - tag: "custom_proxy_match"
+    type: "domain_set"
+    args:
+      exps:
+        - "keyword:google"
+      files:
+        - ./custom/proxy.txt
+        - ./sites/google-cn.txt
+
+  - tag: "ptr_match"
+    type: "domain_set"
+    args:
+      files:
+        - ./sites/local_ptr.txt
+
+  - tag: "ad_match"
+    type: "domain_set"
+    args:
+      files:
+        - ./sites/AWAvenue.txt
+
+  - tag: "redirect"
+    type: "redirect"
+    args:
+      rules:
+        - cache.ott.ystenlive.itv.cmvideo.cn pixman.io.ystenlive.dnsany.com
+        - cache.ott.bestlive.itv.cmvideo.cn pixman.io.bestlive.dnsany.com
+        - cache.ott.wasulive.itv.cmvideo.cn pixman.io.wasulive.dnsany.com
+        - cache.ott.fifalive.itv.cmvideo.cn pixman.io.fifalive.dnsany.com
+        - cache.ott.hnbblive.itv.cmvideo.cn pixman.io.hnbblive.dnsany.com
+
+  - tag: sequence_main
+    type: sequence
+    args:
+      # 处理hosts
+      - exec: $hosts
+      - matches: has_resp
+        exec: accept
+      - exec: $redirect
+
+      - matches: qtype 64 65
+        exec: reject
+
+      # #广告规则
+      # - matches: qname $ad_match
+      #   exec: reject
+
+      - matches:
+          - "!qtype 1 28"
+        exec: goto router_dns
+
+      - matches: qname $pt_match
+        exec: goto pt_sequence
+
+      #IPV4优先
+      - exec: prefer_ipv4
+      #匹配自定义代理
+      - matches: qname $custom_proxy_match
+        exec: goto proxy_dns
+
+      #匹配国内域名
+      - matches: qname $cn_match
+        exec: goto china_dns
+      #匹配黑名单域名
+      - matches: qname $proxy_match
+        exec: goto proxy_dns
+
+      #未收录域名
+      - exec: $fallback_dns
+
+  - type: udp_server
+    args:
+      entry: sequence_main
+      listen: 0.0.0.0:53

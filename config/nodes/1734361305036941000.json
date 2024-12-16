@@ -1,0 +1,21 @@
+{
+  "outbound": {
+    "port": 10001,
+    "server": "cdn.zx.lilisi.link",
+    "settings": {
+      "servers": [
+        {
+          "address": "cdn.zx.lilisi.link",
+          "method": "aes-128-gcm",
+          "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+          "port": 10001
+        }
+      ]
+    },
+    "streamSettings": {
+      "network": ""
+    },
+    "tag": "",
+    "type": "ss"
+  }
+}

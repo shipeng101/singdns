@@ -1,53 +1,46 @@
 server:
-  port: 8080
   host: 0.0.0.0
+  port: 8080
   mode: debug
 log:
-  level: info
-  file: logs/smbox.log
-  max_size: 100
-  max_backups: 3
-  max_age: 28
-  compress: true
+  level: ""
+  file: ""
+  maxsize: 0
+  maxbackups: 0
+  maxage: 0
+  compress: false
+logfile: ""
+debug: false
+dns:
+  listen: 0.0.0.0:10053
+  port: 53
+  cache: true
+  upstream:
+  - 8.8.8.8:53
+  - 8.8.4.4:53
+  chinadns:
+  - 223.5.5.5:53
+  - 119.29.29.29:53
+  rulesets: []
 proxy:
   mode: rule
   inbound:
-    listen: ""
-    port: 10800
-    socks_port: 10801
-    http_port: 0
+    listen: 127.0.0.1
+    port: 7890
+    socksport: 7891
+    httpport: 7892
     username: ""
     password: ""
-    set_system_proxy: false
-    enable_tun: false
-    tun_interface: ""
-    tun_address: ""
-    tun_mtu: 0
-    tun_auto_route: false
-    tun_strict_route: false
-    tun_stack: ""
-    tun_endpoint_independent_nat: false
-    enable_transparent: false
-    transparent_port: 0
-  api:
-    port: 10802
+    enabletun: false
+    enabletransparent: false
+    setsystemproxy: false
+    transparentport: 0
+    tuninterface: ""
+    tunaddress: ""
+    tunmtu: 0
+    tunautoroute: false
+    tunstrictroute: false
+    tunstack: ""
+    tunendpointindependentnat: false
   rules: []
-dns:
-  listen: 0.0.0.0:10053
-  upstream:
-  - tcp://8.8.8.8:53
-  - tcp://8.8.4.4:53
-  china_dns:
-  - tcp://223.5.5.5:53
-  - tcp://119.29.29.29:53
-  rules: []
-  rule_sets: []
-subscription:
-  urls: []
-  auto_update: true
-  update_interval: 24
-  proxy: ""
-ui:
-  theme: light
-  language: zh-CN
-  dashboard: yacd
+  nodes: []

@@ -1,0 +1,41 @@
+log:
+  level: info
+  file: "logs/mosdns.log"
+
+api:
+  http:
+    addr: "127.0.0.1:9080"
+
+plugins:
+  - tag: "main_sequence"
+    type: "sequence"
+    args:
+      - exec: prefer_ipv4
+      - exec: cache
+      - exec: forward_local
+        args:
+          upstream:
+            - addr: "223.5.5.5"
+              bootstrap: "119.29.29.29"
+            - addr: "119.29.29.29"
+              bootstrap: "223.5.5.5"
+
+  - tag: "cache"
+    type: "cache"
+    args:
+      size: 4096
+      lazy_cache_ttl: 86400
+
+  - tag: "forward_local"
+    type: "forward"
+    args:
+      timeout: 5
+      concurrent: 2
+
+servers:
+  - exec: main_sequence
+    listeners:
+      - protocol: udp
+        addr: "127.0.0.1:5353"
+      - protocol: tcp
+        addr: "127.0.0.1:5353" 

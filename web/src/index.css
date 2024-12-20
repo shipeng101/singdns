@@ -1,0 +1,88 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f0f2f5;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+.ant-layout {
+  min-height: 100vh;
+}
+
+.ant-layout-sider {
+  box-shadow: 2px 0 8px 0 rgba(29, 35, 41, 0.05);
+}
+
+.ant-layout-content {
+  padding: 24px;
+  background: #f0f2f5;
+}
+
+.ant-card {
+  border-radius: 8px;
+  box-shadow: 0 1px 2px -2px rgba(0, 0, 0, 0.16),
+              0 3px 6px 0 rgba(0, 0, 0, 0.12),
+              0 5px 12px 4px rgba(0, 0, 0, 0.09);
+}
+
+.ant-card-head {
+  border-bottom: none;
+}
+
+.ant-btn {
+  border-radius: 6px;
+}
+
+.ant-input,
+.ant-input-password,
+.ant-select-selector {
+  border-radius: 6px !important;
+}
+
+.ant-progress-inner {
+  border-radius: 4px !important;
+}
+
+.ant-modal-content {
+  border-radius: 8px;
+}
+
+.ant-modal-header {
+  border-radius: 8px 8px 0 0;
+}
+
+.ant-table {
+  border-radius: 8px;
+}
+
+.ant-tag {
+  border-radius: 4px;
+}
+
+/* 自定义滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+} 

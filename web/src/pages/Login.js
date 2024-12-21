@@ -42,8 +42,8 @@ function Login() {
       >
         <Card sx={{ width: '100%', maxWidth: 400 }}>
           <CardContent>
-            <Typography variant="h5" component="h1" align="center" gutterBottom>
-              SingDNS 登录
+            <Typography variant="h5" component="h1" gutterBottom align="center">
+              singdns 登录
             </Typography>
             <form onSubmit={handleSubmit}>
               <TextField

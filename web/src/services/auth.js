@@ -3,64 +3,54 @@ import axios from 'axios';
 const TOKEN_KEY = 'singdns_token';
 
 export const login = async (username, password) => {
-  // 模拟登录成功，实际项目中应该调用后端 API
-  if (username === 'admin' && password === 'admin') {
-    const mockToken = 'mock_jwt_token';
-    localStorage.setItem(TOKEN_KEY, mockToken);
-    setAuthHeader(mockToken);
-    return mockToken;
+  try {
+    const response = await axios.post('/api/auth/login', { username, password });
+    const { token } = response.data;
+    localStorage.setItem(TOKEN_KEY, token);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.error || '登录失败');
   }
-  throw new Error('用户名或密码错误');
+};
+
+export const register = async (username, password) => {
+  try {
+    const response = await axios.post('/api/auth/register', { username, password });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.error || '注册失败');
+  }
 };
 
 export const logout = () => {
   localStorage.removeItem(TOKEN_KEY);
-  removeAuthHeader();
+  delete axios.defaults.headers.common['Authorization'];
+};
+
+export const updatePassword = async (oldPassword, newPassword) => {
+  try {
+    const response = await axios.put('/api/user/password', { 
+      old_password: oldPassword,
+      new_password: newPassword 
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.error || '修改密码失败');
+  }
 };
 
 export const getToken = () => {
   return localStorage.getItem(TOKEN_KEY);
 };
 
-export const setAuthHeader = (token) => {
-  if (token) {
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  }
-};
-
-export const removeAuthHeader = () => {
-  delete axios.defaults.headers.common['Authorization'];
-};
-
-export const initAuth = () => {
+export const isAuthenticated = () => {
   const token = getToken();
-  if (token) {
-    setAuthHeader(token);
-  }
+  return !!token;
 };
 
-// 添加请求拦截器
-axios.interceptors.request.use(
-  (config) => {
-    const token = getToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// 添加响应拦截器
-axios.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      logout();
-      window.location.href = '/login';
-    }
-    return Promise.reject(error);
-  }
-); 
+// Add token to axios headers if it exists
+const token = getToken();
+if (token) {
+  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+} 

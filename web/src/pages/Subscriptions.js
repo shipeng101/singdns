@@ -1,335 +1,517 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
   CardContent,
-  Typography,
   Button,
-  TextField,
+  Typography,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton,
-  Grid,
-  Snackbar,
+  TextField,
+  Stack,
   Alert,
+  Snackbar,
   CircularProgress,
+  LinearProgress,
+  useTheme,
+  FormControlLabel,
+  Switch,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Chip,
   List,
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
-  Collapse,
-  Chip,
-  Tooltip,
-  LinearProgress,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel
+  ListItemIcon,
+  Divider
 } from '@mui/material';
 import {
+  DarkMode as DarkModeIcon,
+  LightMode as LightModeIcon,
+  OpenInNew as OpenInNewIcon,
   Add as AddIcon,
-  Edit as EditIcon,
   Delete as DeleteIcon,
-  Refresh as RefreshIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon
+  Edit as EditIcon,
+  Sync as SyncIcon
 } from '@mui/icons-material';
-import * as api from '../services/api';
-import usePolling from '../hooks/usePolling';
+import { getSubscriptions, createSubscription, updateSubscription, deleteSubscription, refreshSubscription } from '../services/api';
+import { getCommonStyles } from '../styles/commonStyles';
 
-function Subscriptions() {
-  const [subscriptions, setSubscriptions] = useState([]);
-  const [groups, setGroups] = useState([]);
+const Subscriptions = ({ mode, setMode, onDashboardClick }) => {
+  const theme = useTheme();
+  const styles = getCommonStyles(theme);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+  const [success, setSuccess] = useState(false);
+  const [subscriptions, setSubscriptions] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState(null);
-  const [formData, setFormData] = useState({ name: '', url: '', groupName: '' });
-  const [expandedGroups, setExpandedGroups] = useState({});
-  const [updatingNodes, setUpdatingNodes] = useState({});
+  const [editSubscription, setEditSubscription] = useState({
+    name: '',
+    type: 'singbox',
+    url: '',
+    autoUpdate: false,
+    updateInterval: {
+      value: 1,
+      unit: 'hour'
+    },
+    active: true
+  });
 
-  // 获取订阅和分组数据
-  const fetchData = useCallback(async () => {
-    try {
-      const [subsResponse, groupsResponse] = await Promise.all([
-        api.getSubscriptions(),
-        api.getGroups()
-      ]);
-      setSubscriptions(subsResponse.data);
-      setGroups(groupsResponse.data);
-    } catch (err) {
-      setError(err.response?.data?.message || '获取数据失败');
-    }
-  }, []);
+  const subscriptionTypes = [
+    { value: 'singbox', label: 'SingBox', description: 'SingBox 订阅格式' },
+    { value: 'clash', label: 'Clash', description: 'Clash 订阅格式' },
+    { value: 'v2ray', label: 'V2Ray', description: 'V2Ray 订阅格式' },
+    { value: 'shadowsocks', label: 'Shadowsocks', description: 'Shadowsocks 订阅格式' }
+  ];
 
-  // 使用轮询进行实时更新
-  usePolling(fetchData, 10000);
+  const updateIntervalUnits = [
+    { value: 'minute', label: '分钟' },
+    { value: 'hour', label: '小时' },
+    { value: 'day', label: '天' },
+    { value: 'week', label: '周' }
+  ];
 
   useEffect(() => {
-    setLoading(true);
-    fetchData().finally(() => setLoading(false));
-  }, [fetchData]);
+    fetchData();
+  }, []);
 
-  const showSuccess = (message) => {
-    setSuccess(message);
-    setTimeout(() => setSuccess(null), 3000);
-  };
-
-  const handleAddSubscription = () => {
-    setSelectedSubscription(null);
-    setFormData({ name: '', url: '', groupName: '' });
-    setOpenDialog(true);
-  };
-
-  const handleEditSubscription = (subscription) => {
-    setSelectedSubscription(subscription);
-    setFormData({
-      name: subscription.name,
-      url: subscription.url,
-      groupName: subscription.groupName || ''
-    });
-    setOpenDialog(true);
-  };
-
-  const handleSaveSubscription = async () => {
-    if (!formData.name || !formData.url) {
-      setError('请填写名称和URL');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
+  const fetchData = async () => {
     try {
+      setLoading(true);
+      const data = await getSubscriptions();
+      setSubscriptions(data);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.error || '获取数据失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenDialog = (subscription = null) => {
+    if (subscription) {
+      setSelectedSubscription(subscription);
+      setEditSubscription({
+        ...subscription,
+        updateInterval: parseUpdateInterval(subscription.updateInterval),
+        active: subscription.active ?? true
+      });
+    } else {
+      setSelectedSubscription(null);
+      setEditSubscription({
+        name: '',
+        type: 'singbox',
+        url: '',
+        autoUpdate: false,
+        updateInterval: {
+          value: 1,
+          unit: 'hour'
+        },
+        active: true
+      });
+    }
+    setOpenDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setSelectedSubscription(null);
+    setEditSubscription({
+      name: '',
+      type: 'singbox',
+      url: '',
+      autoUpdate: false,
+      updateInterval: {
+        value: 1,
+        unit: 'hour'
+      },
+      active: true
+    });
+  };
+
+  const parseUpdateInterval = (interval) => {
+    if (!interval) return { value: 1, unit: 'hour' };
+    const value = parseInt(interval);
+    if (value % (7 * 24 * 60) === 0) return { value: value / (7 * 24 * 60), unit: 'week' };
+    if (value % (24 * 60) === 0) return { value: value / (24 * 60), unit: 'day' };
+    if (value % 60 === 0) return { value: value / 60, unit: 'hour' };
+    return { value, unit: 'minute' };
+  };
+
+  const formatUpdateInterval = (interval) => {
+    const { value, unit } = interval;
+    switch (unit) {
+      case 'week': return value * 7 * 24 * 60;
+      case 'day': return value * 24 * 60;
+      case 'hour': return value * 60;
+      default: return value;
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      const subscriptionData = {
+        ...editSubscription,
+        updateInterval: editSubscription.autoUpdate ? formatUpdateInterval(editSubscription.updateInterval) : 0
+      };
+
       if (selectedSubscription) {
-        await api.updateSubscription(selectedSubscription.id, formData);
-        showSuccess('订阅已更新');
+        await updateSubscription(selectedSubscription.id, subscriptionData);
       } else {
-        await api.createSubscription(formData);
-        showSuccess('订阅已添加');
+        await createSubscription(subscriptionData);
       }
       await fetchData();
-      setOpenDialog(false);
+      setSuccess(true);
+      handleCloseDialog();
     } catch (err) {
-      setError(err.response?.data?.message || '保存失败');
+      setError(err.response?.data?.error || '保存订阅失败');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteSubscription = async (id) => {
-    if (!window.confirm('确定要删除这个订阅吗？')) return;
-    setLoading(true);
-    setError(null);
+  const handleDelete = async (id) => {
     try {
-      await api.deleteSubscription(id);
-      showSuccess('订阅已删除');
+      setLoading(true);
+      await deleteSubscription(id);
       await fetchData();
+      setSuccess(true);
     } catch (err) {
-      setError(err.response?.data?.message || '删除失败');
+      setError(err.response?.data?.error || '删除订阅失败');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateNodes = async (id) => {
-    setUpdatingNodes(prev => ({ ...prev, [id]: true }));
-    setError(null);
+  const handleUpdate = async (id) => {
     try {
-      await api.updateSubscriptionNodes(id);
-      showSuccess('节点已更新');
+      setLoading(true);
+      await refreshSubscription(id);
       await fetchData();
+      setSuccess(true);
     } catch (err) {
-      setError(err.response?.data?.message || '更新节点失败');
+      setError(err.response?.data?.error || '更新订阅失败');
     } finally {
-      setUpdatingNodes(prev => ({ ...prev, [id]: false }));
+      setLoading(false);
     }
-  };
-
-  const toggleGroupExpand = (groupId) => {
-    setExpandedGroups(prev => ({
-      ...prev,
-      [groupId]: !prev[groupId]
-    }));
   };
 
   return (
     <Box>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h5">订阅管理</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleAddSubscription}
-          disabled={loading}
-        >
-          添加订阅
-        </Button>
-      </Box>
+      <Snackbar 
+        open={success} 
+        autoHideDuration={3000} 
+        onClose={() => setSuccess(false)}
+      >
+        <Alert severity="success">操作成功</Alert>
+      </Snackbar>
 
-      {loading && <LinearProgress sx={{ mb: 2 }} />}
+      <Snackbar 
+        open={!!error} 
+        autoHideDuration={3000} 
+        onClose={() => setError(null)}
+      >
+        <Alert severity="error">{error}</Alert>
+      </Snackbar>
 
-      <Grid container spacing={2}>
-        {subscriptions.map((subscription) => (
-          <Grid item xs={12} key={subscription.id}>
-            <Card sx={{
-              '&:hover': {
-                boxShadow: (theme) => theme.shadows[4],
-                transform: 'translateY(-2px)',
-                transition: 'all 0.3s'
-              }
-            }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="h6">{subscription.name}</Typography>
-                  <Box>
-                    <Tooltip title="更新节点">
-                      <IconButton 
-                        onClick={() => handleUpdateNodes(subscription.id)} 
-                        disabled={loading || updatingNodes[subscription.id]}
-                      >
-                        {updatingNodes[subscription.id] ? (
-                          <CircularProgress size={24} />
-                        ) : (
-                          <RefreshIcon />
-                        )}
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="编辑">
-                      <IconButton onClick={() => handleEditSubscription(subscription)} disabled={loading}>
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="删除">
-                      <IconButton onClick={() => handleDeleteSubscription(subscription.id)} disabled={loading}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
+      <Card sx={styles.headerCard}>
+        <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <Typography variant="h5" sx={{ fontWeight: 500, color: 'inherit' }}>
+                订阅管理
+              </Typography>
+              {loading && (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <CircularProgress size={20} thickness={4} sx={{ color: 'rgba(255,255,255,0.8)' }} />
                 </Box>
-                <Typography color="textSecondary" sx={{ mb: 1, wordBreak: 'break-all' }}>
-                  {subscription.url}
-                </Typography>
-                {subscription.groupName && (
-                  <Chip 
-                    label={subscription.groupName} 
-                    size="small" 
-                    sx={{ mb: 2 }}
-                    color="primary"
-                    variant="outlined"
-                  />
-                )}
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    节点列表 ({subscription.nodes?.length || 0})
-                  </Typography>
-                  <List dense>
-                    {subscription.nodes?.map((node) => (
-                      <ListItem key={node.id}>
-                        <ListItemText 
-                          primary={node.name}
-                          secondary={node.type}
+              )}
+            </Stack>
+            <Stack direction="row" spacing={1}>
+              <IconButton
+                size="small"
+                onClick={onDashboardClick}
+                sx={styles.iconButton}
+              >
+                <OpenInNewIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')}
+                sx={styles.iconButton}
+              >
+                {mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+              </IconButton>
+            </Stack>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {loading && <LinearProgress sx={{ mb: 1 }} />}
+
+      <Card sx={{ ...styles.card, mt: 1.5 }}>
+        <CardContent>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6">订阅列表</Typography>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenDialog()}
+              sx={styles.actionButton}
+            >
+              添加订阅
+            </Button>
+          </Stack>
+
+          <List sx={{ width: '100%' }}>
+            {subscriptions.map((subscription, index) => (
+              <React.Fragment key={subscription.id}>
+                {index > 0 && <Divider component="li" />}
+                <ListItem
+                  sx={{
+                    py: 2,
+                    px: 0,
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                      borderRadius: 1
+                    }
+                  }}
+                >
+                  <ListItemIcon>
+                    <Chip 
+                      label={subscription.type} 
+                      size="small"
+                      sx={{
+                        ...styles.chip.primary,
+                        background: 'linear-gradient(45deg, #3949ab 30%, #5e35b1 90%)',
+                        color: '#fff',
+                        fontWeight: 500,
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                          {subscription.name}
+                        </Typography>
+                        <Chip 
+                          label={subscription.active ? "已启用" : "已禁用"} 
+                          size="small"
+                          sx={subscription.active ? {
+                            ...styles.chip.success,
+                            background: 'linear-gradient(45deg, #4caf50 30%, #81c784 90%)',
+                            color: '#fff',
+                            fontWeight: 500,
+                          } : {
+                            ...styles.chip.error,
+                            background: 'linear-gradient(45deg, #f44336 30%, #e57373 90%)',
+                            color: '#fff',
+                            fontWeight: 500,
+                          }}
                         />
-                        {node.status && (
-                          <Tooltip title={node.status === 'ok' ? '可用' : '不可用'}>
-                            <Box component="span" sx={{ ml: 1 }}>
-                              {node.status === 'ok' ? (
-                                <CheckCircleIcon color="success" fontSize="small" />
-                              ) : (
-                                <ErrorIcon color="error" fontSize="small" />
-                              )}
-                            </Box>
-                          </Tooltip>
+                        {subscription.autoUpdate && (
+                          <Chip 
+                            label={`自动更新: ${subscription.updateInterval}分钟`} 
+                            size="small"
+                            sx={{
+                              ...styles.chip.warning,
+                              background: 'linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)',
+                              color: '#fff',
+                              fontWeight: 500,
+                            }}
+                          />
                         )}
-                      </ListItem>
-                    ))}
-                  </List>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                      </Stack>
+                    }
+                    secondary={subscription.url}
+                    secondaryTypographyProps={{
+                      sx: {
+                        mt: 0.5,
+                        color: 'text.secondary',
+                        wordBreak: 'break-all'
+                      }
+                    }}
+                  />
+                  <ListItemSecondaryAction>
+                    <Stack direction="row" spacing={1}>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={() => handleUpdate(subscription.id)}
+                        sx={{
+                          color: 'text.secondary',
+                          '&:hover': {
+                            color: 'primary.main',
+                            backgroundColor: 'action.hover',
+                          },
+                        }}
+                      >
+                        <SyncIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={() => handleOpenDialog(subscription)}
+                        sx={{
+                          color: 'text.secondary',
+                          '&:hover': {
+                            color: 'primary.main',
+                            backgroundColor: 'action.hover',
+                          },
+                        }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={() => handleDelete(subscription.id)}
+                        sx={{
+                          color: 'text.secondary',
+                          '&:hover': {
+                            color: 'error.main',
+                            backgroundColor: 'action.hover',
+                          },
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              </React.Fragment>
+            ))}
+          </List>
+        </CardContent>
+      </Card>
 
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+      {/* Subscription Dialog */}
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: styles.dialog
+        }}
+      >
         <DialogTitle>
           {selectedSubscription ? '编辑订阅' : '添加订阅'}
         </DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="名称"
-            fullWidth
-            required
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            error={!formData.name}
-            helperText={!formData.name && '请输入名称'}
-          />
-          <TextField
-            margin="dense"
-            label="URL"
-            fullWidth
-            required
-            value={formData.url}
-            onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-            error={!formData.url}
-            helperText={!formData.url && '请输入URL'}
-          />
-          <FormControl fullWidth margin="dense">
-            <InputLabel>分组</InputLabel>
-            <Select
-              value={formData.groupName}
-              onChange={(e) => setFormData({ ...formData, groupName: e.target.value })}
-              label="分组"
-            >
-              <MenuItem value="">
-                <em>无</em>
-              </MenuItem>
-              {groups.map((group) => (
-                <MenuItem key={group.id} value={group.name}>
-                  {group.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Stack spacing={2} sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="订阅名称"
+              value={editSubscription.name}
+              onChange={(e) => setEditSubscription({ ...editSubscription, name: e.target.value })}
+              size="small"
+            />
+            <FormControl fullWidth size="small">
+              <InputLabel>订阅类型</InputLabel>
+              <Select
+                value={editSubscription.type}
+                label="订阅类型"
+                onChange={(e) => setEditSubscription({ ...editSubscription, type: e.target.value })}
+              >
+                {subscriptionTypes.map((type) => (
+                  <MenuItem key={type.value} value={type.value}>
+                    <Stack>
+                      <Typography variant="body1">{type.label}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {type.description}
+                      </Typography>
+                    </Stack>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="订阅地址"
+              value={editSubscription.url}
+              onChange={(e) => setEditSubscription({ ...editSubscription, url: e.target.value })}
+              size="small"
+              placeholder="https://example.com/subscribe"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={editSubscription.autoUpdate}
+                  onChange={(e) => setEditSubscription({ ...editSubscription, autoUpdate: e.target.checked })}
+                />
+              }
+              label="自动更新"
+            />
+            {editSubscription.autoUpdate && (
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  type="number"
+                  label="更新间隔"
+                  value={editSubscription.updateInterval.value}
+                  onChange={(e) => setEditSubscription({
+                    ...editSubscription,
+                    updateInterval: {
+                      ...editSubscription.updateInterval,
+                      value: parseInt(e.target.value) || 1
+                    }
+                  })}
+                  size="small"
+                  sx={{ width: '40%' }}
+                  InputProps={{
+                    inputProps: { min: 1 }
+                  }}
+                />
+                <FormControl size="small" sx={{ width: '60%' }}>
+                  <InputLabel>时间单位</InputLabel>
+                  <Select
+                    value={editSubscription.updateInterval.unit}
+                    label="时间单位"
+                    onChange={(e) => setEditSubscription({
+                      ...editSubscription,
+                      updateInterval: {
+                        ...editSubscription.updateInterval,
+                        unit: e.target.value
+                      }
+                    })}
+                  >
+                    {updateIntervalUnits.map((unit) => (
+                      <MenuItem key={unit.value} value={unit.value}>{unit.label}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Stack>
+            )}
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={editSubscription.active}
+                  onChange={(e) => setEditSubscription({ ...editSubscription, active: e.target.checked })}
+                />
+              }
+              label="启用订阅"
+            />
+          </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>取消</Button>
-          <Button onClick={handleSaveSubscription} disabled={loading || !formData.name || !formData.url}>
+          <Button onClick={handleCloseDialog}>取消</Button>
+          <Button variant="contained" onClick={handleSave}>
             保存
           </Button>
         </DialogActions>
       </Dialog>
-
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={() => setError(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={() => setError(null)} severity="error">
-          {error}
-        </Alert>
-      </Snackbar>
-
-      <Snackbar
-        open={!!success}
-        autoHideDuration={3000}
-        onClose={() => setSuccess(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={() => setSuccess(null)} severity="success">
-          {success}
-        </Alert>
-      </Snackbar>
     </Box>
   );
-}
+};
 
 export default Subscriptions; 

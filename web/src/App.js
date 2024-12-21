@@ -11,16 +11,13 @@ import {
   IconButton,
   useMediaQuery,
   Typography,
-  Divider,
   Container,
-  Tooltip,
   Menu,
-  MenuItem
+  MenuItem,
 } from '@mui/material';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
 import getTheme from './theme';
-import { initAuth, getToken } from './services/auth';
-import Login from './pages/Login';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Import your components
 import Dashboard from './pages/Dashboard';
@@ -34,13 +31,10 @@ import {
   Dns as DnsIcon,
   Settings as SettingsIcon,
   Rule as RuleIcon,
-  DarkMode as DarkModeIcon,
-  LightMode as LightModeIcon,
   Menu as MenuIcon,
-  OpenInNew as OpenInNewIcon
 } from '@mui/icons-material';
 
-const drawerWidth = 180;
+const drawerWidth = 150;
 
 const menuItems = [
   { text: '仪表盘', icon: <DashboardIcon />, path: '/' },
@@ -50,36 +44,27 @@ const menuItems = [
   { text: '系统设置', icon: <SettingsIcon />, path: '/settings' },
 ];
 
-const ProtectedRoute = ({ children }) => {
-  const token = getToken();
-  const location = useLocation();
-
-  if (!token) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  return children;
-};
-
 function App() {
-  const [mode, setMode] = useState('light');
+  const [mode, setMode] = useState(() => {
+    const savedMode = localStorage.getItem('themeMode');
+    return savedMode || 'light';
+  });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dashboardAnchorEl, setDashboardAnchorEl] = useState(null);
   const theme = getTheme(mode);
 
   useEffect(() => {
-    initAuth();
-  }, []);
+    localStorage.setItem('themeMode', mode);
+  }, [mode]);
 
   return (
     <ThemeProvider theme={theme}>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/*"
-            element={
-              <ProtectedRoute>
+      <ErrorBoundary>
+        <Router>
+          <Routes>
+            <Route
+              path="/*"
+              element={
                 <AppContent 
                   mode={mode} 
                   setMode={setMode}
@@ -88,17 +73,18 @@ function App() {
                   dashboardAnchorEl={dashboardAnchorEl}
                   setDashboardAnchorEl={setDashboardAnchorEl}
                 />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </Router>
+              }
+            />
+          </Routes>
+        </Router>
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }
 
 function AppContent({ mode, setMode, mobileOpen, setMobileOpen, dashboardAnchorEl, setDashboardAnchorEl }) {
   const isMobile = useMediaQuery((theme) => theme.breakpoints.down('sm'));
+  const location = useLocation();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -113,34 +99,111 @@ function AppContent({ mode, setMode, mobileOpen, setMobileOpen, dashboardAnchorE
   };
 
   const handleDashboardSelect = (url) => {
-    const baseUrl = window.location.origin;
-    window.open(`${baseUrl}${url}`, '_blank');
+    window.open(url, '_blank');
     handleDashboardClose();
   };
 
   const drawer = (
-    <Box>
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography variant="h6" noWrap component="div">
-          SingDNS
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ 
+        p: 2.5,
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+      }}>
+        <Typography 
+          variant="h6" 
+          noWrap 
+          component="div"
+          sx={{ 
+            fontSize: '1.4rem',
+            fontWeight: 600,
+            background: (theme) => 
+              theme.palette.mode === 'dark' 
+                ? 'linear-gradient(90deg, #90caf9 30%, #ce93d8 90%)'
+                : 'linear-gradient(90deg, #1976d2 30%, #9c27b0 90%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            letterSpacing: '0.5px',
+          }}
+        >
+          singdns
         </Typography>
       </Box>
-      <Divider />
-      <List>
+      <List sx={{ 
+        mt: 1,
+        px: 1.5,
+        py: 1,
+        flexGrow: 1,
+      }}>
         {menuItems.map((item) => (
           <ListItem
             button
             key={item.text}
             component={Link}
             to={item.path}
+            selected={location.pathname === item.path}
+            onClick={() => isMobile && handleDrawerToggle()}
             sx={{
+              minHeight: 44,
+              mb: 0.5,
+              borderRadius: '12px',
+              px: 1.5,
+              transition: 'all 0.2s',
               '&.Mui-selected': {
-                backgroundColor: 'action.selected',
+                background: (theme) => 
+                  theme.palette.mode === 'dark'
+                    ? 'linear-gradient(90deg, rgba(144, 202, 249, 0.15) 0%, rgba(206, 147, 216, 0.15) 100%)'
+                    : 'linear-gradient(90deg, rgba(25, 118, 210, 0.08) 0%, rgba(156, 39, 176, 0.08) 100%)',
+                '&:hover': {
+                  background: (theme) => 
+                    theme.palette.mode === 'dark'
+                      ? 'linear-gradient(90deg, rgba(144, 202, 249, 0.25) 0%, rgba(206, 147, 216, 0.25) 100%)'
+                      : 'linear-gradient(90deg, rgba(25, 118, 210, 0.12) 0%, rgba(156, 39, 176, 0.12) 100%)',
+                },
+              },
+              '&:hover': {
+                background: (theme) => 
+                  theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.05)'
+                    : 'rgba(0, 0, 0, 0.02)',
               },
             }}
           >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.text} />
+            <ListItemIcon 
+              sx={{ 
+                minWidth: 36,
+                transition: 'color 0.2s',
+                color: (theme) => 
+                  location.pathname === item.path
+                    ? theme.palette.mode === 'dark'
+                      ? '#90caf9'
+                      : theme.palette.primary.main
+                    : theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.6)'
+                      : 'rgba(0, 0, 0, 0.4)',
+              }}
+            >
+              {item.icon}
+            </ListItemIcon>
+            <ListItemText 
+              primary={item.text}
+              primaryTypographyProps={{
+                fontSize: '0.9rem',
+                fontWeight: location.pathname === item.path ? 600 : 400,
+                sx: {
+                  transition: 'color 0.2s',
+                  color: (theme) => 
+                    location.pathname === item.path
+                      ? theme.palette.mode === 'dark'
+                        ? '#fff'
+                        : theme.palette.text.primary
+                      : theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.6)'
+                        : 'rgba(0, 0, 0, 0.6)',
+                }
+              }}
+            />
           </ListItem>
         ))}
       </List>
@@ -151,7 +214,6 @@ function AppContent({ mode, setMode, mobileOpen, setMobileOpen, dashboardAnchorE
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       <CssBaseline />
       
-      {/* App Bar */}
       <Box
         component="nav"
         sx={{
@@ -181,6 +243,11 @@ function AppContent({ mode, setMode, mobileOpen, setMobileOpen, dashboardAnchorE
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
               width: drawerWidth,
+              background: (theme) => 
+                theme.palette.mode === 'dark' 
+                  ? '#0a1929'
+                  : '#f8fafc',
+              borderRight: 'none',
             },
           }}
         >
@@ -188,47 +255,83 @@ function AppContent({ mode, setMode, mobileOpen, setMobileOpen, dashboardAnchorE
         </Drawer>
       </Box>
 
-      {/* Main content */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 1, sm: 2 },
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           ml: { sm: `${drawerWidth}px` },
+          backgroundColor: (theme) => theme.palette.background.default,
+          minHeight: '100vh',
         }}
       >
-        <Container maxWidth="xl" sx={{ py: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-            <Tooltip title="仪表盘">
-              <IconButton onClick={handleDashboardClick} sx={{ mr: 1 }}>
-                <OpenInNewIcon />
-              </IconButton>
-            </Tooltip>
-            <Menu
-              anchorEl={dashboardAnchorEl}
-              open={Boolean(dashboardAnchorEl)}
-              onClose={handleDashboardClose}
-            >
-              <MenuItem onClick={() => handleDashboardSelect('/ui/metacubexd/')}>
-                MetaCubeXD
-              </MenuItem>
-              <MenuItem onClick={() => handleDashboardSelect('/ui/yacd/')}>
-                YACD
-              </MenuItem>
-            </Menu>
-            <Tooltip title={mode === 'dark' ? '切换亮色主题' : '切换暗色主题'}>
-              <IconButton onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')}>
-                {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-              </IconButton>
-            </Tooltip>
-          </Box>
+        <Container 
+          maxWidth={false} 
+          sx={{ 
+            py: 1,
+            px: { xs: 1, sm: 1.5 },
+            height: '100%',
+          }}
+        >
+          <Menu
+            anchorEl={dashboardAnchorEl}
+            open={Boolean(dashboardAnchorEl)}
+            onClose={handleDashboardClose}
+            PaperProps={{
+              elevation: 0,
+              sx: {
+                border: '1px solid',
+                borderColor: (theme) => 
+                  theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.12)'
+                    : 'rgba(0, 0, 0, 0.06)',
+              },
+            }}
+          >
+            <MenuItem onClick={() => handleDashboardSelect('/ui/metacubexd/')}>
+              MetaCubeXD
+            </MenuItem>
+            <MenuItem onClick={() => handleDashboardSelect('/ui/yacd/')}>
+              YACD
+            </MenuItem>
+          </Menu>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/nodes" element={<Nodes />} />
-            <Route path="/rules" element={<Rules />} />
-            <Route path="/subscriptions" element={<Subscriptions />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/" element={
+              <Dashboard 
+                mode={mode} 
+                setMode={setMode}
+                onDashboardClick={handleDashboardClick}
+              />
+            } />
+            <Route path="/nodes" element={
+              <Nodes 
+                mode={mode} 
+                setMode={setMode}
+                onDashboardClick={handleDashboardClick}
+              />
+            } />
+            <Route path="/rules" element={
+              <Rules 
+                mode={mode} 
+                setMode={setMode}
+                onDashboardClick={handleDashboardClick}
+              />
+            } />
+            <Route path="/subscriptions" element={
+              <Subscriptions 
+                mode={mode} 
+                setMode={setMode}
+                onDashboardClick={handleDashboardClick}
+              />
+            } />
+            <Route path="/settings" element={
+              <Settings 
+                mode={mode} 
+                setMode={setMode}
+                onDashboardClick={handleDashboardClick}
+              />
+            } />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Container>
       </Box>

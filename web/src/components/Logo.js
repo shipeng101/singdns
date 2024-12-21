@@ -10,7 +10,7 @@ const Logo = () => {
       <Typography
         variant="h5"
         sx={{
-          fontWeight: 'bold',
+          fontWeight: 600,
           background: theme.palette.mode === 'dark'
             ? 'linear-gradient(45deg, #90caf9 30%, #ce93d8 90%)'
             : 'linear-gradient(45deg, #1976d2 30%, #9c27b0 90%)',
@@ -18,7 +18,7 @@ const Logo = () => {
           WebkitTextFillColor: 'transparent',
         }}
       >
-        SingDNS
+        singdns
       </Typography>
     </Box>
   );

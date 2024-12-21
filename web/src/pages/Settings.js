@@ -3,61 +3,189 @@ import {
   Box,
   Card,
   CardContent,
-  Typography,
-  TextField,
-  Button,
-  Switch,
-  FormControlLabel,
-  Snackbar,
-  Alert,
   Grid,
+  Button,
+  Typography,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Stack,
+  Alert,
+  Snackbar,
+  CircularProgress,
   LinearProgress,
-  Divider
+  useTheme,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction
 } from '@mui/material';
-import * as api from '../services/api';
+import {
+  DarkMode as DarkModeIcon,
+  LightMode as LightModeIcon,
+  OpenInNew as OpenInNewIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon
+} from '@mui/icons-material';
+import { getSettings, updateSettings } from '../services/api';
+import { getCommonStyles } from '../styles/commonStyles';
 
-function Settings() {
-  const [settings, setSettings] = useState({
-    httpPort: '',
-    socksPort: '',
-    apiPort: '',
-    allowLan: false,
-    logLevel: 'info'
-  });
+const Settings = ({ mode, setMode, onDashboardClick }) => {
+  const theme = useTheme();
+  const styles = getCommonStyles(theme);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+  const [success, setSuccess] = useState(false);
+  
+  // Password Management State
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
 
-  const fetchSettings = async () => {
-    setLoading(true);
-    try {
-      const response = await api.getSettings();
-      setSettings(response.data);
-    } catch (err) {
-      setError(err.response?.data?.message || '获取设置失败');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // DNS Settings State
+  const [dnsSettings, setDnsSettings] = useState({
+    domestic: [],
+    foreign: [],
+    currentDomestic: '',
+    currentForeign: ''
+  });
+  const [dnsDialog, setDnsDialog] = useState(false);
+  const [dnsType, setDnsType] = useState('domestic');
+  const [newDns, setNewDns] = useState({
+    type: 'udp',
+    address: ''
+  });
+
+  // Network Settings State
+  const [networkSettings, setNetworkSettings] = useState({
+    listenAddress: '',
+    listenPort: '',
+    currentAddress: '',
+    currentPort: ''
+  });
 
   useEffect(() => {
     fetchSettings();
   }, []);
 
-  const handleChange = (name) => (event) => {
-    const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
-    setSettings(prev => ({ ...prev, [name]: value }));
+  const fetchSettings = async () => {
+    try {
+      setLoading(true);
+      const settings = await getSettings();
+      
+      // Update DNS settings
+      setDnsSettings({
+        domestic: settings.dns.domestic || [],
+        foreign: settings.dns.foreign || [],
+        currentDomestic: settings.dns.currentDomestic || '',
+        currentForeign: settings.dns.currentForeign || ''
+      });
+
+      // Update Network settings
+      setNetworkSettings({
+        listenAddress: settings.network.listenAddress || '',
+        listenPort: settings.network.listenPort || '',
+        currentAddress: settings.network.currentAddress || '',
+        currentPort: settings.network.currentPort || ''
+      });
+
+    } catch (err) {
+      setError(err.response?.data?.error || '获取设置失败');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSave = async () => {
-    setLoading(true);
-    setError(null);
+  const handlePasswordChange = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setError('新密码与确认密码不匹配');
+      return;
+    }
+
     try {
-      await api.updateSettings(settings);
-      setSuccess('设置已保存');
-      setTimeout(() => setSuccess(null), 3000);
+      setLoading(true);
+      await updateSettings({
+        password: {
+          current: passwordData.currentPassword,
+          new: passwordData.newPassword
+        }
+      });
+      setSuccess(true);
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
     } catch (err) {
-      setError(err.response?.data?.message || '保存设置失败');
+      setError(err.response?.data?.error || '修改密码失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddDns = async () => {
+    try {
+      setLoading(true);
+      const updatedSettings = {
+        dns: {
+          ...dnsSettings,
+          [dnsType]: [...dnsSettings[dnsType], newDns]
+        }
+      };
+      await updateSettings(updatedSettings);
+      setDnsSettings(updatedSettings.dns);
+      setDnsDialog(false);
+      setNewDns({ type: 'udp', address: '' });
+      setSuccess(true);
+    } catch (err) {
+      setError(err.response?.data?.error || '添加DNS失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteDns = async (type, index) => {
+    try {
+      setLoading(true);
+      const updatedDns = [...dnsSettings[type]];
+      updatedDns.splice(index, 1);
+      const updatedSettings = {
+        dns: {
+          ...dnsSettings,
+          [type]: updatedDns
+        }
+      };
+      await updateSettings(updatedSettings);
+      setDnsSettings(updatedSettings.dns);
+      setSuccess(true);
+    } catch (err) {
+      setError(err.response?.data?.error || '删除DNS失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNetworkSettingsUpdate = async () => {
+    try {
+      setLoading(true);
+      await updateSettings({
+        network: {
+          listenAddress: networkSettings.listenAddress,
+          listenPort: networkSettings.listenPort
+        }
+      });
+      setSuccess(true);
+    } catch (err) {
+      setError(err.response?.data?.error || '更新网络设置失败');
     } finally {
       setLoading(false);
     }
@@ -65,133 +193,296 @@ function Settings() {
 
   return (
     <Box>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h5">系统设置</Typography>
-        <Button
-          variant="contained"
-          onClick={handleSave}
-          disabled={loading}
-        >
-          保存设置
-        </Button>
-      </Box>
+      <Snackbar 
+        open={success} 
+        autoHideDuration={3000} 
+        onClose={() => setSuccess(false)}
+      >
+        <Alert severity="success">操作成功</Alert>
+      </Snackbar>
 
-      {loading && <LinearProgress sx={{ mb: 2 }} />}
+      <Snackbar 
+        open={!!error} 
+        autoHideDuration={3000} 
+        onClose={() => setError(null)}
+      >
+        <Alert severity="error">{error}</Alert>
+      </Snackbar>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12}>
-          <Card sx={{
-            '&:hover': {
-              boxShadow: (theme) => theme.shadows[4],
-              transform: 'translateY(-2px)',
-              transition: 'all 0.3s'
-            }
-          }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                网络设置
+      <Card sx={styles.headerCard}>
+        <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <Typography variant="h5" sx={{ fontWeight: 500, color: 'inherit' }}>
+                系统设置
               </Typography>
-              <Divider sx={{ my: 2 }} />
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="HTTP 代理端口"
-                    type="number"
-                    fullWidth
-                    value={settings.httpPort}
-                    onChange={handleChange('httpPort')}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="SOCKS 代理端口"
-                    type="number"
-                    fullWidth
-                    value={settings.socksPort}
-                    onChange={handleChange('socksPort')}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="API 端口"
-                    type="number"
-                    fullWidth
-                    value={settings.apiPort}
-                    onChange={handleChange('apiPort')}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={settings.allowLan}
-                        onChange={handleChange('allowLan')}
-                      />
-                    }
-                    label="允许局域网访问"
-                  />
-                </Grid>
-              </Grid>
+              {loading && (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <CircularProgress size={20} thickness={4} sx={{ color: 'rgba(255,255,255,0.8)' }} />
+                </Box>
+              )}
+            </Stack>
+            <Stack direction="row" spacing={1}>
+              <IconButton
+                size="small"
+                onClick={onDashboardClick}
+                sx={styles.iconButton}
+              >
+                <OpenInNewIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')}
+                sx={styles.iconButton}
+              >
+                {mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+              </IconButton>
+            </Stack>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {loading && <LinearProgress sx={{ mb: 1 }} />}
+
+      <Grid container spacing={1.5} sx={{ mt: 0.5 }}>
+        {/* Password Management Card */}
+        <Grid item xs={12} md={6}>
+          <Card sx={styles.card}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>密码管理</Typography>
+              <Stack spacing={2}>
+                <TextField
+                  fullWidth
+                  type="password"
+                  label="当前密码"
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData({
+                    ...passwordData,
+                    currentPassword: e.target.value
+                  })}
+                  size="small"
+                />
+                <TextField
+                  fullWidth
+                  type="password"
+                  label="新密码"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({
+                    ...passwordData,
+                    newPassword: e.target.value
+                  })}
+                  size="small"
+                />
+                <TextField
+                  fullWidth
+                  type="password"
+                  label="确认新密码"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({
+                    ...passwordData,
+                    confirmPassword: e.target.value
+                  })}
+                  size="small"
+                />
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={handlePasswordChange}
+                  sx={styles.actionButton}
+                >
+                  修改密码
+                </Button>
+              </Stack>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12}>
-          <Card sx={{
-            '&:hover': {
-              boxShadow: (theme) => theme.shadows[4],
-              transform: 'translateY(-2px)',
-              transition: 'all 0.3s'
-            }
-          }}>
+        {/* Network Settings Card */}
+        <Grid item xs={12} md={6}>
+          <Card sx={styles.card}>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                日志设置
+              <Typography variant="h6" gutterBottom>网络设置</Typography>
+              <Stack spacing={2}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="监听地址"
+                  value={networkSettings.listenAddress}
+                  onChange={(e) => setNetworkSettings({
+                    ...networkSettings,
+                    listenAddress: e.target.value
+                  })}
+                  placeholder={networkSettings.currentAddress}
+                  helperText={`当前地址: ${networkSettings.currentAddress}`}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="监听端口"
+                  value={networkSettings.listenPort}
+                  onChange={(e) => setNetworkSettings({
+                    ...networkSettings,
+                    listenPort: e.target.value
+                  })}
+                  placeholder={networkSettings.currentPort}
+                  helperText={`当前端口: ${networkSettings.currentPort}`}
+                />
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={handleNetworkSettingsUpdate}
+                  sx={styles.actionButton}
+                >
+                  保存设置
+                </Button>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* DNS Settings Cards */}
+        <Grid item xs={12} md={6}>
+          <Card sx={styles.card}>
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6">国内DNS设置</Typography>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => {
+                    setDnsType('domestic');
+                    setDnsDialog(true);
+                  }}
+                  sx={styles.actionButton}
+                >
+                  添加DNS
+                </Button>
+              </Stack>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                当前使用: {dnsSettings.currentDomestic || '未设置'}
               </Typography>
-              <Divider sx={{ my: 2 }} />
-              <TextField
-                select
-                label="日志级别"
-                fullWidth
-                value={settings.logLevel}
-                onChange={handleChange('logLevel')}
-                SelectProps={{
-                  native: true
-                }}
-              >
-                <option value="debug">调试</option>
-                <option value="info">信息</option>
-                <option value="warning">警告</option>
-                <option value="error">错误</option>
-              </TextField>
+              <List>
+                {dnsSettings.domestic.map((dns, index) => (
+                  <ListItem key={index}>
+                    <ListItemText
+                      primary={dns.address}
+                      secondary={dns.type.toUpperCase()}
+                    />
+                    <ListItemSecondaryAction>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={() => handleDeleteDns('domestic', index)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                ))}
+              </List>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card sx={styles.card}>
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6">国外DNS设置</Typography>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => {
+                    setDnsType('foreign');
+                    setDnsDialog(true);
+                  }}
+                  sx={styles.actionButton}
+                >
+                  添加DNS
+                </Button>
+              </Stack>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                当前使用: {dnsSettings.currentForeign || '未设置'}
+              </Typography>
+              <List>
+                {dnsSettings.foreign.map((dns, index) => (
+                  <ListItem key={index}>
+                    <ListItemText
+                      primary={dns.address}
+                      secondary={dns.type.toUpperCase()}
+                    />
+                    <ListItemSecondaryAction>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={() => handleDeleteDns('foreign', index)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                ))}
+              </List>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={() => setError(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      {/* Add DNS Dialog */}
+      <Dialog 
+        open={dnsDialog} 
+        onClose={() => setDnsDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: styles.dialog
+        }}
       >
-        <Alert onClose={() => setError(null)} severity="error">
-          {error}
-        </Alert>
-      </Snackbar>
-
-      <Snackbar
-        open={!!success}
-        autoHideDuration={3000}
-        onClose={() => setSuccess(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={() => setSuccess(null)} severity="success">
-          {success}
-        </Alert>
-      </Snackbar>
+        <DialogTitle>
+          添加{dnsType === 'domestic' ? '国内' : '国外'}DNS
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 2 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>DNS类型</InputLabel>
+              <Select
+                value={newDns.type}
+                label="DNS类型"
+                onChange={(e) => setNewDns({
+                  ...newDns,
+                  type: e.target.value
+                })}
+              >
+                <MenuItem value="udp">UDP</MenuItem>
+                <MenuItem value="tcp">TCP</MenuItem>
+                <MenuItem value="doh">DoH</MenuItem>
+                <MenuItem value="dot">DoT</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="DNS地址"
+              value={newDns.address}
+              onChange={(e) => setNewDns({
+                ...newDns,
+                address: e.target.value
+              })}
+              placeholder={newDns.type === 'doh' ? 'https://dns.example.com/dns-query' : '8.8.8.8:53'}
+              size="small"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDnsDialog(false)}>取消</Button>
+          <Button variant="contained" onClick={handleAddDns}>
+            添加
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
-}
+};
 
 export default Settings; 

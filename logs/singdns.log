@@ -1,0 +1,4 @@
+{"level":"info","time":"2024-12-21T18:57:15.699+0800","caller":"api/logger.go:103","msg":"API server starting","address":":8080"}
+{"level":"info","time":"2024-12-21T21:12:12.972+0800","caller":"api/logger.go:103","msg":"Shutting down..."}
+{"level":"info","time":"2024-12-21T21:12:16.420+0800","caller":"api/logger.go:103","msg":"API server starting","address":":8080"}
+{"level":"info","time":"2024-12-21T21:16:10.207+0800","caller":"api/logger.go:103","msg":"Shutting down..."}

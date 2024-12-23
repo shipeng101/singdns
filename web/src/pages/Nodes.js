@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -33,7 +33,9 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Divider
+  Divider,
+  Pagination,
+  Checkbox,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -43,10 +45,9 @@ import {
   LightMode as LightModeIcon,
   OpenInNew as OpenInNewIcon,
   Sync as SyncIcon,
-  CloudSync as CloudSyncIcon
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
-import { getNodes, getNodeGroups, createNodeGroup, updateNodeGroup, deleteNodeGroup, importNodes } from '../services/api';
+import { getNodes, getNodeGroups, createNodeGroup, updateNodeGroup, deleteNodeGroup, createNode, updateNode, deleteNode, testNode, testNodes } from '../services/api';
 import { getCommonStyles } from '../styles/commonStyles';
 
 const Nodes = ({ mode, setMode, onDashboardClick }) => {
@@ -57,6 +58,9 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [total, setTotal] = useState(0);
   const [openGroupDialog, setOpenGroupDialog] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [editGroup, setEditGroup] = useState({
@@ -72,35 +76,36 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
   const [editNode, setEditNode] = useState({
     name: '',
     type: 'ss',
-    server: '',
+    address: '',
     port: '',
     method: 'aes-256-gcm',
     password: '',
     uuid: '',
     alterId: 0,
     security: 'auto',
-    sni: '',
+    host: '',
     skipCertVerify: false,
     protocol: 'udp',
     up: '',
     down: '',
     obfs: '',
     alpn: [],
-    uploadMbps: 100,
-    downloadMbps: 100,
+    upMbps: 100,
+    downMbps: 100,
     version: 3,
     username: '',
     tls: false,
     network: 'tcp',
     udp: true,
-    ws: false,
-    wsPath: '',
+    webSocket: false,
+    path: '',
     wsHeaders: {},
+    plugin: '',
+    pluginOpts: {},
+    cc: '',
+    serviceName: ''
   });
-  const [openImportDialog, setOpenImportDialog] = useState(false);
-  const [importUrl, setImportUrl] = useState('');
-  const [autoUpdate, setAutoUpdate] = useState(false);
-  const [updateInterval, setUpdateInterval] = useState('');
+  const [selectedNodes, setSelectedNodes] = useState([]);
 
   const nodeTypes = [
     { value: 'ss', label: 'Shadowsocks' },
@@ -127,18 +132,24 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
     '2022-blake3-chacha20-poly1305',
   ];
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [nodesData, groupsData] = await Promise.all([
-        getNodes(),
+      const [nodesResponse, groupsData] = await Promise.all([
+        getNodes(page, pageSize),
         getNodeGroups()
       ]);
-      setNodes(nodesData);
+
+      // Sort nodes by latency (offline nodes at the end)
+      const sortedNodes = nodesResponse.nodes.sort((a, b) => {
+        if (a.status === 'offline' && b.status === 'offline') return 0;
+        if (a.status === 'offline') return 1;
+        if (b.status === 'offline') return -1;
+        return a.latency - b.latency;
+      });
+
+      setNodes(sortedNodes);
+      setTotal(nodesResponse.pagination.total);
       setNodeGroups(groupsData);
       setError(null);
     } catch (err) {
@@ -146,6 +157,50 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
     } finally {
       setLoading(false);
     }
+  }, [page, pageSize]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleRefresh = async () => {
+    try {
+      setLoading(true);
+      // 测试所有节点
+      const response = await testNodes();
+      // 更新节点状态
+      const updatedNodes = nodes.map(node => {
+        const result = response.results.find(r => r.id === node.id);
+        if (result) {
+          return {
+            ...node,
+            status: result.status,
+            latency: result.latency,
+            checkedAt: result.checkedAt || new Date().toISOString()
+          };
+        }
+        return node;
+      });
+
+      // 按延迟排序，离线节点放在最后
+      const sortedNodes = updatedNodes.sort((a, b) => {
+        if (a.status === 'offline' && b.status === 'offline') return 0;
+        if (a.status === 'offline') return 1;
+        if (b.status === 'offline') return -1;
+        return a.latency - b.latency;
+      });
+
+      setNodes(sortedNodes);
+      setSuccess(true);
+    } catch (err) {
+      setError(err.response?.data?.error || '刷新节点失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage);
   };
 
   const handleOpenGroupDialog = (group = null) => {
@@ -222,62 +277,41 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
       setSelectedNode(node);
       setEditNode({
         ...node,
-        name: node.name || '',
-        type: node.type || 'ss',
-        server: node.server || '',
-        port: node.port || '',
-        method: node.method || 'aes-256-gcm',
-        password: node.password || '',
-        uuid: node.uuid || '',
-        alterId: node.alterId || 0,
-        security: node.security || 'auto',
-        sni: node.sni || '',
-        skipCertVerify: node.skipCertVerify || false,
-        protocol: node.protocol || 'udp',
-        up: node.up || '',
-        down: node.down || '',
-        obfs: node.obfs || '',
-        alpn: node.alpn || [],
-        uploadMbps: node.uploadMbps || 100,
-        downloadMbps: node.downloadMbps || 100,
-        version: node.version || 3,
-        username: node.username || '',
-        tls: node.tls || false,
-        network: node.network || 'tcp',
-        udp: node.udp || true,
-        ws: node.ws || false,
-        wsPath: node.wsPath || '',
-        wsHeaders: node.wsHeaders || {},
+        webSocket: node.network === 'ws',
       });
     } else {
       setSelectedNode(null);
       setEditNode({
         name: '',
         type: 'ss',
-        server: '',
+        address: '',
         port: '',
         method: 'aes-256-gcm',
         password: '',
         uuid: '',
         alterId: 0,
         security: 'auto',
-        sni: '',
+        host: '',
         skipCertVerify: false,
         protocol: 'udp',
         up: '',
         down: '',
         obfs: '',
         alpn: [],
-        uploadMbps: 100,
-        downloadMbps: 100,
+        upMbps: 100,
+        downMbps: 100,
         version: 3,
         username: '',
         tls: false,
         network: 'tcp',
         udp: true,
-        ws: false,
-        wsPath: '',
+        webSocket: false,
+        path: '',
         wsHeaders: {},
+        plugin: '',
+        pluginOpts: {},
+        cc: '',
+        serviceName: ''
       });
     }
     setOpenNodeDialog(true);
@@ -289,40 +323,55 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
     setEditNode({
       name: '',
       type: 'ss',
-      server: '',
+      address: '',
       port: '',
       method: 'aes-256-gcm',
       password: '',
       uuid: '',
       alterId: 0,
       security: 'auto',
-      sni: '',
+      host: '',
       skipCertVerify: false,
       protocol: 'udp',
       up: '',
       down: '',
       obfs: '',
       alpn: [],
-      uploadMbps: 100,
-      downloadMbps: 100,
+      upMbps: 100,
+      downMbps: 100,
       version: 3,
       username: '',
       tls: false,
       network: 'tcp',
       udp: true,
-      ws: false,
-      wsPath: '',
+      webSocket: false,
+      path: '',
       wsHeaders: {},
+      plugin: '',
+      pluginOpts: {},
+      cc: '',
+      serviceName: ''
     });
   };
 
   const handleSaveNode = async () => {
     try {
       setLoading(true);
+      const nodeData = {
+        ...editNode,
+        id: selectedNode ? selectedNode.id : undefined,
+        group: selectedNode ? selectedNode.group : '',
+        status: selectedNode ? selectedNode.status : 'offline',
+        latency: selectedNode ? selectedNode.latency : 0,
+        checkedAt: selectedNode ? selectedNode.checkedAt : new Date().toISOString(),
+        createdAt: selectedNode ? selectedNode.createdAt : Math.floor(Date.now() / 1000),
+        updatedAt: Math.floor(Date.now() / 1000)
+      };
+
       if (selectedNode) {
-        await updateNodeGroup(selectedNode.id, editNode);
+        await updateNode(selectedNode.id, nodeData);
       } else {
-        await createNodeGroup(editNode);
+        await createNode(nodeData);
       }
       await fetchData();
       setSuccess(true);
@@ -334,54 +383,65 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
     }
   };
 
-  const handleOpenImportDialog = () => {
-    setImportDialogOpen(true);
-  };
-
-  const handleCloseImportDialog = () => {
-    setImportDialogOpen(false);
-    setImportContent('');
-    setImportType('subscription');
-  };
-
-  const handleImportNodes = async () => {
+  const handleDeleteNode = async (id) => {
+    if (!window.confirm('确定要删除这个节点吗？')) {
+      return;
+    }
+    
     try {
       setLoading(true);
-      const nodeLinks = importContent.split('\n').filter(link => link.trim());
-      for (const link of nodeLinks) {
-        const protocol = link.split('://')[0].toLowerCase();
-        if (['ss', 'vmess', 'trojan', 'naive', 'hysteria', 'hysteria2', 'shadowtls', 'tun', 'redirect', 'tproxy', 'socks', 'http'].includes(protocol)) {
-          await importNodes({ url: link, type: protocol });
-        }
-      }
+      await deleteNode(id);
       await fetchData();
       setSuccess(true);
-      handleCloseImportDialog();
-    } catch (error) {
-      setError(error.response?.data?.error || '导入节点失败');
+    } catch (err) {
+      setError(err.response?.data?.error || '删除节点失败');
     } finally {
       setLoading(false);
     }
   };
 
-  const cardVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: {
-        duration: 0.3,
-      }
+  const handleSelectAll = (event) => {
+    if (event.target.checked) {
+      setSelectedNodes(nodes.map(node => node.id));
+    } else {
+      setSelectedNodes([]);
     }
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
+  const handleSelectNode = (nodeId) => {
+    setSelectedNodes(prev => {
+      if (prev.includes(nodeId)) {
+        return prev.filter(id => id !== nodeId);
+      } else {
+        return [...prev, nodeId];
       }
+    });
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedNodes.length === 0) {
+      setError('请先选择要删除的节点');
+      return;
+    }
+
+    if (!window.confirm(`确定要删除选中的 ${selectedNodes.length} 个节点吗？`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      // 依次删除选中的节点
+      for (const nodeId of selectedNodes) {
+        await deleteNode(nodeId);
+      }
+      // 刷新节点列表
+      await fetchData();
+      setSelectedNodes([]); // 清空选中状态
+      setSuccess(true);
+    } catch (err) {
+      setError(err.response?.data?.error || '批量删除节点失败');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -390,7 +450,7 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
       case 'ss':
         return (
           <>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <FormControl fullWidth size="small">
                 <InputLabel>加密方式</InputLabel>
                 <Select
@@ -405,7 +465,7 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="密码"
@@ -416,9 +476,28 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
                 sx={styles.textField}
               />
             </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="插件"
+                value={editNode.plugin}
+                onChange={(e) => setEditNode({ ...editNode, plugin: e.target.value })}
+                size="small"
+                sx={styles.textField}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="插件选项"
+                value={editNode.pluginOpts}
+                onChange={(e) => setEditNode({ ...editNode, pluginOpts: e.target.value })}
+                size="small"
+                sx={styles.textField}
+              />
+            </Grid>
           </>
         );
-
       case 'vmess':
         return (
           <>
@@ -432,7 +511,7 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
                 sx={styles.textField}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="AlterID"
@@ -443,7 +522,7 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
                 sx={styles.textField}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <FormControl fullWidth size="small">
                 <InputLabel>加密方式</InputLabel>
                 <Select
@@ -459,116 +538,53 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
                 </Select>
               </FormControl>
             </Grid>
-          </>
-        );
-
-      case 'trojan':
-        return (
-          <>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="密码"
-                value={editNode.password}
-                onChange={(e) => setEditNode({ ...editNode, password: e.target.value })}
-                size="small"
-                type="password"
-                sx={styles.textField}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="SNI"
-                value={editNode.sni}
-                onChange={(e) => setEditNode({ ...editNode, sni: e.target.value })}
-                size="small"
-                sx={styles.textField}
-              />
-            </Grid>
             <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={editNode.skipCertVerify}
-                    onChange={(e) => setEditNode({ ...editNode, skipCertVerify: e.target.checked })}
-                  />
-                }
-                label="跳过证书验证"
-              />
+              <FormControl fullWidth size="small">
+                <InputLabel>传输协议</InputLabel>
+                <Select
+                  value={editNode.network}
+                  label="传输协议"
+                  onChange={(e) => setEditNode({ ...editNode, network: e.target.value })}
+                  sx={styles.textField}
+                >
+                  <MenuItem value="tcp">TCP</MenuItem>
+                  <MenuItem value="ws">WebSocket</MenuItem>
+                  <MenuItem value="http">HTTP</MenuItem>
+                  <MenuItem value="h2">HTTP/2</MenuItem>
+                  <MenuItem value="grpc">gRPC</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
-          </>
-        );
-
-      case 'hysteria':
-      case 'hysteria2':
-        return (
-          <>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="上行速度 (Mbps)"
-                type="number"
-                value={editNode.type === 'hysteria' ? editNode.up : editNode.uploadMbps}
-                onChange={(e) => setEditNode({
-                  ...editNode,
-                  [editNode.type === 'hysteria' ? 'up' : 'uploadMbps']: e.target.value
-                })}
-                size="small"
-                sx={styles.textField}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="下行速度 (Mbps)"
-                type="number"
-                value={editNode.type === 'hysteria' ? editNode.down : editNode.downloadMbps}
-                onChange={(e) => setEditNode({
-                  ...editNode,
-                  [editNode.type === 'hysteria' ? 'down' : 'downloadMbps']: e.target.value
-                })}
-                size="small"
-                sx={styles.textField}
-              />
-            </Grid>
-            {editNode.type === 'hysteria' && (
+            {editNode.network === 'ws' && (
               <>
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
-                    label="混淆密码"
-                    value={editNode.obfs}
-                    onChange={(e) => setEditNode({ ...editNode, obfs: e.target.value })}
+                    label="WebSocket 路径"
+                    value={editNode.path}
+                    onChange={(e) => setEditNode({ ...editNode, path: e.target.value })}
                     size="small"
                     sx={styles.textField}
                   />
                 </Grid>
                 <Grid item xs={12}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>ALPN</InputLabel>
-                    <Select
-                      multiple
-                      value={editNode.alpn}
-                      label="ALPN"
-                      onChange={(e) => setEditNode({ ...editNode, alpn: e.target.value })}
-                      sx={styles.textField}
-                    >
-                      <MenuItem value="h3">h3</MenuItem>
-                      <MenuItem value="h2">h2</MenuItem>
-                      <MenuItem value="http/1.1">http/1.1</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <TextField
+                    fullWidth
+                    label="WebSocket 主机"
+                    value={editNode.host}
+                    onChange={(e) => setEditNode({ ...editNode, host: e.target.value })}
+                    size="small"
+                    sx={styles.textField}
+                  />
                 </Grid>
               </>
             )}
           </>
         );
-
-      case 'shadowtls':
+      case 'trojan':
         return (
           <>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="密码"
@@ -579,60 +595,126 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
                 sx={styles.textField}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel>版本</InputLabel>
-                <Select
-                  value={editNode.version}
-                  label="版本"
-                  onChange={(e) => setEditNode({ ...editNode, version: e.target.value })}
-                  sx={styles.textField}
-                >
-                  <MenuItem value={1}>v1</MenuItem>
-                  <MenuItem value={2}>v2</MenuItem>
-                  <MenuItem value={3}>v3</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </>
-        );
-
-      case 'naive':
-        return (
-          <>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="用户名"
-                value={editNode.username}
-                onChange={(e) => setEditNode({ ...editNode, username: e.target.value })}
+                label="SNI"
+                value={editNode.host}
+                onChange={(e) => setEditNode({ ...editNode, host: e.target.value })}
                 size="small"
-                sx={styles.textField}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="密码"
-                value={editNode.password}
-                onChange={(e) => setEditNode({ ...editNode, password: e.target.value })}
-                size="small"
-                type="password"
                 sx={styles.textField}
               />
             </Grid>
           </>
         );
-
       default:
         return null;
     }
   };
 
-  // 导入节点对话框
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [importType, setImportType] = useState('subscription');
-  const [importContent, setImportContent] = useState('');
+  // 添加 URL 解码函数
+  const decodeNodeName = (name) => {
+    try {
+      return decodeURIComponent(name);
+    } catch (e) {
+      return name;
+    }
+  };
+
+  // 格式化延时显示
+  const formatLatency = (latency) => {
+    if (latency === undefined || latency === null) return '-';
+    if (latency === 0) return '-';
+    if (latency < 0) return '超时';
+    return `${latency}ms`;
+  };
+
+  // 获取节点状态的颜色
+  const getStatusColor = (status, latency) => {
+    if (status === 'online') {
+      if (latency < 100) {
+        return 'linear-gradient(45deg, #4caf50 30%, #81c784 90%)';  // 绿色
+      } else if (latency < 300) {
+        return 'linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)';  // 橙色
+      } else {
+        return 'linear-gradient(45deg, #f44336 30%, #e57373 90%)';  // 红色
+      }
+    }
+    return 'linear-gradient(45deg, #9e9e9e 30%, #bdbdbd 90%)';  // 灰色
+  };
+
+  const columns = [
+    { field: 'name', headerName: '名称', flex: 1 },
+    { field: 'type', headerName: '类型', width: 100 },
+    { field: 'address', headerName: '地址', flex: 1 },
+    { field: 'port', headerName: '端口', width: 100 },
+    {
+      field: 'status',
+      headerName: '状态',
+      width: 120,
+      renderCell: (params) => (
+        <Chip
+          label={params.value === 'online' ? '在线' : '离线'}
+          color={params.value === 'online' ? 'success' : 'error'}
+          size="small"
+          sx={{
+            background: getStatusColor(params.value, params.row.latency),
+            color: 'white'
+          }}
+        />
+      ),
+    },
+    {
+      field: 'latency',
+      headerName: '延迟',
+      width: 100,
+      renderCell: (params) => (
+        <span>{formatLatency(params.value)}</span>
+      ),
+    },
+    {
+      field: 'checkedAt',
+      headerName: '最后测速',
+      width: 180,
+      renderCell: (params) => (
+        params.value ? new Date(params.value).toLocaleString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }) : '-'
+      ),
+    },
+    {
+      field: 'actions',
+      headerName: '操作',
+      width: 120,
+      renderCell: (params) => (
+        <Stack direction="row" spacing={1}>
+          <IconButton
+            size="small"
+            onClick={() => handleOpenNodeDialog(params.row)}
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={() => handleDeleteNode(params.row.id)}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+      ),
+    },
+  ];
+
+  // 修复中文编码问题
+  const renderGroupModeHelperText = (mode) => {
+    return mode === 'select' ? '手动选择节点' : '自动选择可用和延迟较低的节点';
+  };
 
   return (
     <Box>
@@ -704,64 +786,145 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
             <Button
               variant="contained"
               size="small"
-              startIcon={<CloudSyncIcon />}
-              onClick={handleOpenImportDialog}
-              sx={styles.actionButton}
-            >
-              导入节点
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
               startIcon={<SyncIcon />}
-              onClick={fetchData}
+              onClick={handleRefresh}
               disabled={loading}
               sx={styles.actionButton}
             >
               刷新节点
             </Button>
+            {selectedNodes.length > 0 && (
+              <Button
+                variant="contained"
+                size="small"
+                color="error"
+                startIcon={<DeleteIcon />}
+                onClick={handleBatchDelete}
+                disabled={loading}
+                sx={styles.actionButton}
+              >
+                删除选中 ({selectedNodes.length})
+              </Button>
+            )}
           </Stack>
         </Box>
+
         <TableContainer component={Paper} sx={styles.tableContainer}>
           <Table size="small">
             <TableHead>
               <TableRow>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    indeterminate={selectedNodes.length > 0 && selectedNodes.length < nodes.length}
+                    checked={nodes.length > 0 && selectedNodes.length === nodes.length}
+                    onChange={handleSelectAll}
+                    size="small"
+                  />
+                </TableCell>
                 <TableCell>名称</TableCell>
                 <TableCell>类型</TableCell>
                 <TableCell>地址</TableCell>
+                <TableCell>端口</TableCell>
                 <TableCell>延迟</TableCell>
                 <TableCell>状态</TableCell>
+                <TableCell>最后测速</TableCell>
+                <TableCell align="right">操作</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {nodes.map((node) => (
                 <TableRow key={node.id}>
-                  <TableCell>{node.name}</TableCell>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={selectedNodes.includes(node.id)}
+                      onChange={() => handleSelectNode(node.id)}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>{decodeNodeName(node.name)}</TableCell>
                   <TableCell>{node.type}</TableCell>
                   <TableCell>{node.address}</TableCell>
-                  <TableCell>{node.latency}ms</TableCell>
+                  <TableCell>{node.port}</TableCell>
                   <TableCell>
-                    <Chip 
-                      label={node.status} 
+                    <Chip
+                      label={formatLatency(node.latency)}
                       size="small"
-                      sx={node.status === 'online' ? {
-                        ...styles.chip.success,
-                        background: 'linear-gradient(45deg, #4caf50 30%, #81c784 90%)',
-                        color: '#fff',
-                        fontWeight: 500,
-                      } : {
-                        ...styles.chip.error,
-                        background: 'linear-gradient(45deg, #f44336 30%, #e57373 90%)',
+                      sx={{
+                        background: getStatusColor(node.status, node.latency),
                         color: '#fff',
                         fontWeight: 500,
                       }}
                     />
+                  </TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={node.status === 'online' ? '在线' : '离线'} 
+                      size="small"
+                      sx={{
+                        background: node.status === 'online' 
+                          ? 'linear-gradient(45deg, #4caf50 30%, #81c784 90%)'
+                          : 'linear-gradient(45deg, #f44336 30%, #e57373 90%)',
+                        color: '#fff',
+                        fontWeight: 500,
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {node.checkedAt ? new Date(node.checkedAt).toLocaleString('zh-CN', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      hour12: false
+                    }) : '-'}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleOpenNodeDialog(node)}
+                        sx={{
+                          color: 'text.secondary',
+                          '&:hover': {
+                            color: 'primary.main',
+                            backgroundColor: 'action.hover',
+                          },
+                        }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleDeleteNode(node.id)}
+                        sx={{
+                          color: 'text.secondary',
+                          '&:hover': {
+                            color: 'error.main',
+                            backgroundColor: 'action.hover',
+                          },
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </TableContainer>
+
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+          <Pagination
+            count={Math.ceil(total / pageSize)}
+            page={page}
+            onChange={handlePageChange}
+            color="primary"
+            size="small"
+          />
+        </Box>
       </Box>
 
       {/* Node Groups */}
@@ -789,7 +952,6 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
                       label={group.tag} 
                       size="small"
                       sx={{
-                        ...styles.chip.primary,
                         background: 'linear-gradient(45deg, #3949ab 30%, #5e35b1 90%)',
                         color: '#fff',
                         fontWeight: 500,
@@ -834,12 +996,10 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
                     label={group.active ? "活跃" : "未激活"} 
                     size="small"
                     sx={group.active ? {
-                      ...styles.chip.success,
                       background: 'linear-gradient(45deg, #4caf50 30%, #81c784 90%)',
                       color: '#fff',
                       fontWeight: 500,
                     } : {
-                      ...styles.chip.error,
                       background: 'linear-gradient(45deg, #f44336 30%, #e57373 90%)',
                       color: '#fff',
                       fontWeight: 500,
@@ -849,13 +1009,11 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
                     label={group.mode === 'select' ? "手动选择" : "自动测速"} 
                     size="small"
                     sx={group.mode === 'select' ? {
-                      ...styles.chip.warning,
-                      background: 'linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)',
+                      background: 'linear-gradient(45deg, #4caf50 30%, #81c784 90%)',
                       color: '#fff',
                       fontWeight: 500,
                     } : {
-                      ...styles.chip.success,
-                      background: 'linear-gradient(45deg, #42a5f5 30%, #64b5f6 90%)',
+                      background: 'linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)',
                       color: '#fff',
                       fontWeight: 500,
                     }}
@@ -917,7 +1075,7 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
                     <MenuItem value="urltest">自动测速</MenuItem>
                   </Select>
                   <FormHelperText>
-                    {editGroup.mode === 'select' ? '手动选择节点' : '自动选择可用和延迟较低的节点'}
+                    {renderGroupModeHelperText(editGroup.mode)}
                   </FormHelperText>
                 </FormControl>
               </Grid>
@@ -984,7 +1142,7 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
         </DialogContent>
         <DialogActions>
           <Button 
-            onClick={handleCloseGroupDialog} 
+            onClick={handleCloseGroupDialog}
             size="small"
             sx={{
               color: 'text.secondary',
@@ -1026,7 +1184,7 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="节点名称"
+                  label="名称"
                   value={editNode.name}
                   onChange={(e) => setEditNode({ ...editNode, name: e.target.value })}
                   size="small"
@@ -1035,10 +1193,10 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth size="small">
-                  <InputLabel>节点类型</InputLabel>
+                  <InputLabel>类型</InputLabel>
                   <Select
                     value={editNode.type}
-                    label="节点类型"
+                    label="类型"
                     onChange={(e) => setEditNode({ ...editNode, type: e.target.value })}
                     sx={styles.textField}
                   >
@@ -1048,23 +1206,23 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="服务器地址"
-                  value={editNode.server}
-                  onChange={(e) => setEditNode({ ...editNode, server: e.target.value })}
+                  label="地址"
+                  value={editNode.address}
+                  onChange={(e) => setEditNode({ ...editNode, address: e.target.value })}
                   size="small"
                   sx={styles.textField}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="端口"
                   type="number"
                   value={editNode.port}
-                  onChange={(e) => setEditNode({ ...editNode, port: e.target.value })}
+                  onChange={(e) => setEditNode({ ...editNode, port: parseInt(e.target.value) || '' })}
                   size="small"
                   sx={styles.textField}
                 />
@@ -1088,6 +1246,17 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
                 <FormControlLabel
                   control={
                     <Switch
+                      checked={editNode.skipCertVerify}
+                      onChange={(e) => setEditNode({ ...editNode, skipCertVerify: e.target.checked })}
+                    />
+                  }
+                  label="跳过证书验证"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Switch
                       checked={editNode.udp}
                       onChange={(e) => setEditNode({ ...editNode, udp: e.target.checked })}
                     />
@@ -1095,34 +1264,11 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
                   label="启用 UDP"
                 />
               </Grid>
-              <Grid item xs={12}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={editNode.ws}
-                      onChange={(e) => setEditNode({ ...editNode, ws: e.target.checked })}
-                    />
-                  }
-                  label="WebSocket"
-                />
-              </Grid>
-              {editNode.ws && (
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="WebSocket 路径"
-                    value={editNode.wsPath}
-                    onChange={(e) => setEditNode({ ...editNode, wsPath: e.target.value })}
-                    size="small"
-                    sx={styles.textField}
-                  />
-                </Grid>
-              )}
             </Grid>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button
+          <Button 
             onClick={handleCloseNodeDialog}
             size="small"
             sx={{
@@ -1134,84 +1280,14 @@ const Nodes = ({ mode, setMode, onDashboardClick }) => {
           >
             取消
           </Button>
-          <Button
-            variant="contained"
+          <Button 
+            variant="contained" 
             onClick={handleSaveNode}
             disabled={loading}
             size="small"
             sx={styles.actionButton}
           >
             保存
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* 导入节点对话框 */}
-      <Dialog
-        open={importDialogOpen}
-        onClose={handleCloseImportDialog}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: styles.dialog
-        }}
-      >
-        <DialogTitle>导入节点</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={6}
-                  label="节点链接"
-                  value={importContent}
-                  onChange={(e) => setImportContent(e.target.value)}
-                  size="small"
-                  placeholder="支持以下格式节点链接，每行一个：
-ss://...
-vmess://...
-trojan://...
-naive://...
-hysteria://...
-hysteria2://...
-shadowtls://...
-tun://...
-redirect://...
-tproxy://...
-socks://...
-http://..."
-                  sx={styles.textField}
-                />
-                <FormHelperText>
-                  支持 SS、VMess、Trojan、Naive、Hysteria、Hysteria2、ShadowTLS、Tun、Redirect、TProxy、Socks、HTTP 等格式节点链接，每行一个
-                </FormHelperText>
-              </Grid>
-            </Grid>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={handleCloseImportDialog}
-            size="small"
-            sx={{
-              color: 'text.secondary',
-              '&:hover': {
-                backgroundColor: 'action.hover',
-              },
-            }}
-          >
-            取消
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleImportNodes}
-            disabled={loading || !importContent}
-            size="small"
-            sx={styles.actionButton}
-          >
-            导入
           </Button>
         </DialogActions>
       </Dialog>

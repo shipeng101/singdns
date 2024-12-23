@@ -1,16 +1,19 @@
 package protocols
 
-import "net"
+import (
+	"net"
+	"singdns/api/models"
+)
 
 // Session represents a proxy connection session
 type Session struct {
 	Conn     net.Conn
-	Node     *Node
+	Node     *models.Node
 	Protocol Protocol
 }
 
 // NewSession creates a new session
-func NewSession(conn net.Conn, node *Node, protocol Protocol) *Session {
+func NewSession(conn net.Conn, node *models.Node, protocol Protocol) *Session {
 	return &Session{
 		Conn:     conn,
 		Node:     node,

@@ -1,4 +1,8 @@
 import axios from 'axios';
+import config from '../config';
+
+// Set base URL for all requests
+axios.defaults.baseURL = config.apiBaseUrl;
 
 const TOKEN_KEY = 'singdns_token';
 
@@ -11,15 +15,6 @@ export const login = async (username, password) => {
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.error || '登录失败');
-  }
-};
-
-export const register = async (username, password) => {
-  try {
-    const response = await axios.post('/api/auth/register', { username, password });
-    return response.data;
-  } catch (error) {
-    throw new Error(error.response?.data?.error || '注册失败');
   }
 };
 
@@ -44,12 +39,7 @@ export const getToken = () => {
   return localStorage.getItem(TOKEN_KEY);
 };
 
-export const isAuthenticated = () => {
-  const token = getToken();
-  return !!token;
-};
-
-// Add token to axios headers if it exists
+// Initialize axios auth header if token exists
 const token = getToken();
 if (token) {
   axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;

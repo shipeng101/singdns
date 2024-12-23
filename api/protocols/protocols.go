@@ -4,37 +4,15 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
+	"singdns/api/models"
 	"strings"
-	"time"
 )
-
-// Node represents a proxy node
-type Node struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Type      string    `json:"type"`     // ss, vmess, trojan, vless, hy2, tuic
-	Address   string    `json:"address"`  // Server address
-	Port      int       `json:"port"`     // Server port
-	Method    string    `json:"method"`   // Encryption method (for ss)
-	Password  string    `json:"password"` // Password (for ss/trojan/hy2)
-	UUID      string    `json:"uuid"`     // UUID (for vmess/vless/tuic)
-	AlterId   int       `json:"alter_id"` // Alter ID (for vmess)
-	Network   string    `json:"network"`  // Network type (tcp/ws/grpc)
-	Path      string    `json:"path"`     // WebSocket path or gRPC service name
-	Host      string    `json:"host"`     // SNI or WebSocket host
-	TLS       bool      `json:"tls"`      // Enable TLS
-	Flow      string    `json:"flow"`     // VLESS flow control
-	Up        string    `json:"up"`       // Hysteria2 uplink capacity
-	Down      string    `json:"down"`     // Hysteria2 downlink capacity
-	CC        string    `json:"cc"`       // TUIC congestion control
-	CreatedAt time.Time `json:"created_at"`
-}
 
 // Protocol defines the interface for proxy protocols
 type Protocol interface {
-	ParseURL(u *url.URL) (*Node, error)
-	ToURL(node *Node) (string, error)
-	Validate(node *Node) error
+	ParseURL(u *url.URL) (*models.Node, error)
+	ToURL(node *models.Node) (string, error)
+	Validate(node *models.Node) error
 }
 
 // protocols maps protocol names to their implementations
@@ -51,7 +29,7 @@ func Get(name string) Protocol {
 }
 
 // ParseURL parses a URL into a Node using the appropriate protocol
-func ParseURL(rawURL string) (*Node, error) {
+func ParseURL(rawURL string) (*models.Node, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, err
@@ -66,7 +44,7 @@ func ParseURL(rawURL string) (*Node, error) {
 }
 
 // ToURL converts a Node to its URL representation
-func ToURL(node *Node) (string, error) {
+func ToURL(node *models.Node) (string, error) {
 	protocol := Get(node.Type)
 	if protocol == nil {
 		return "", fmt.Errorf("unsupported protocol: %s", node.Type)
@@ -76,7 +54,7 @@ func ToURL(node *Node) (string, error) {
 }
 
 // Validate validates a Node configuration
-func Validate(node *Node) error {
+func Validate(node *models.Node) error {
 	protocol := Get(node.Type)
 	if protocol == nil {
 		return fmt.Errorf("unsupported protocol: %s", node.Type)

@@ -1,4 +1,8 @@
 import axios from 'axios';
+import config from '../config';
+
+// Set base URL for all requests
+axios.defaults.baseURL = config.apiBaseUrl;
 
 // System APIs
 export const getSystemInfo = async () => {
@@ -27,8 +31,17 @@ export const restartService = async (name) => {
 };
 
 // Node APIs
-export const getNodes = async () => {
-  const response = await axios.get('/api/nodes');
+export const getNodes = (page = 1, pageSize = 10) => {
+  return axios.get('/api/nodes', {
+    params: {
+      page,
+      page_size: pageSize
+    }
+  }).then(response => response.data);
+};
+
+export const testNodes = async () => {
+  const response = await axios.post('/api/nodes/test');
   return response.data;
 };
 
@@ -37,19 +50,16 @@ export const getNodeStatus = async (id) => {
   return response.data;
 };
 
-export const createNode = async (node) => {
-  const response = await axios.post('/api/nodes', node);
-  return response.data;
+export const createNode = (node) => {
+  return axios.post('/api/nodes', node).then(response => response.data);
 };
 
-export const updateNode = async (id, node) => {
-  const response = await axios.put(`/api/nodes/${id}`, node);
-  return response.data;
+export const updateNode = (id, node) => {
+  return axios.put(`/api/nodes/${id}`, node).then(response => response.data);
 };
 
-export const deleteNode = async (id) => {
-  const response = await axios.delete(`/api/nodes/${id}`);
-  return response.data;
+export const deleteNode = (id) => {
+  return axios.delete(`/api/nodes/${id}`).then(response => response.data);
 };
 
 export const importNodes = async (url, autoUpdate = false, updateInterval = 0) => {
@@ -61,9 +71,8 @@ export const importNodes = async (url, autoUpdate = false, updateInterval = 0) =
   return response.data;
 };
 
-export const testNode = async (id) => {
-  const response = await axios.post(`/api/nodes/${id}/test`);
-  return response.data;
+export const testNode = (id) => {
+  return axios.post(`/api/nodes/${id}/test`).then(response => response.data);
 };
 
 // Rule APIs
@@ -104,7 +113,11 @@ export const updateSubscription = async (id, subscription) => {
 };
 
 export const deleteSubscription = async (id) => {
-  const response = await axios.delete(`/api/subscriptions/${id}`);
+  const response = await axios.delete(`/api/subscriptions/${id}`, {
+    params: {
+      delete_nodes: true
+    }
+  });
   return response.data;
 };
 
@@ -159,6 +172,27 @@ export const updateNodeGroup = async (id, group) => {
 export const deleteNodeGroup = async (id) => {
   const response = await axios.delete(`/api/node-groups/${id}`);
   return response.data;
+};
+
+// Rule set API calls
+export const getRuleSets = () => {
+  return axios.get('/api/rulesets').then(response => response.data);
+};
+
+export const createRuleSet = (data) => {
+  return axios.post('/api/rulesets', data).then(response => response.data);
+};
+
+export const updateRuleSet = (id, data) => {
+  return axios.put(`/api/rulesets/${id}`, data).then(response => response.data);
+};
+
+export const deleteRuleSet = (id) => {
+  return axios.delete(`/api/rulesets/${id}`).then(response => response.data);
+};
+
+export const updateRuleSetRules = (id) => {
+  return axios.post(`/api/rulesets/${id}/update`).then(response => response.data);
 };
 
 // Add axios interceptors for error handling

@@ -3,6 +3,7 @@ package protocols
 import (
 	"fmt"
 	"net/url"
+	"singdns/api/models"
 )
 
 // TrojanProtocol implements the Trojan protocol
@@ -14,8 +15,8 @@ func init() {
 
 // ParseURL parses a Trojan URL into a Node
 // Format: trojan://password@host:port?allowInsecure=1&peer=sni#name
-func (p *TrojanProtocol) ParseURL(u *url.URL) (*Node, error) {
-	node := &Node{
+func (p *TrojanProtocol) ParseURL(u *url.URL) (*models.Node, error) {
+	node := &models.Node{
 		Type: "trojan",
 		Name: u.Fragment,
 		TLS:  true, // Trojan always uses TLS
@@ -47,7 +48,7 @@ func (p *TrojanProtocol) ParseURL(u *url.URL) (*Node, error) {
 
 	// Allow insecure
 	if query.Get("allowInsecure") == "1" {
-		// TODO: Handle insecure TLS
+		node.SkipCertVerify = true
 	}
 
 	// Parse other parameters
@@ -69,7 +70,7 @@ func (p *TrojanProtocol) ParseURL(u *url.URL) (*Node, error) {
 }
 
 // ToURL converts a Node to a Trojan URL
-func (p *TrojanProtocol) ToURL(node *Node) (string, error) {
+func (p *TrojanProtocol) ToURL(node *models.Node) (string, error) {
 	if err := p.Validate(node); err != nil {
 		return "", err
 	}
@@ -87,6 +88,11 @@ func (p *TrojanProtocol) ToURL(node *Node) (string, error) {
 	// SNI
 	if node.Host != "" && node.Host != node.Address {
 		query.Set("peer", node.Host)
+	}
+
+	// Skip cert verify
+	if node.SkipCertVerify {
+		query.Set("allowInsecure", "1")
 	}
 
 	// Network specific parameters
@@ -116,7 +122,7 @@ func (p *TrojanProtocol) ToURL(node *Node) (string, error) {
 }
 
 // Validate validates a Trojan node configuration
-func (p *TrojanProtocol) Validate(node *Node) error {
+func (p *TrojanProtocol) Validate(node *models.Node) error {
 	if node.Type != "trojan" {
 		return fmt.Errorf("invalid node type: %s", node.Type)
 	}

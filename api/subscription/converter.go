@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"singdns/api/logger"
+	"singdns/api/models"
 	"singdns/api/protocols"
 	"strings"
 
@@ -21,7 +22,7 @@ func NewSubscriptionConverter() *SubscriptionConverter {
 }
 
 // ConvertToText converts nodes to text subscription format
-func (c *SubscriptionConverter) ConvertToText(nodes []*protocols.Node) (string, error) {
+func (c *SubscriptionConverter) ConvertToText(nodes []*models.Node) (string, error) {
 	var urls []string
 	for _, node := range nodes {
 		url, err := protocols.ToURL(node)
@@ -37,7 +38,7 @@ func (c *SubscriptionConverter) ConvertToText(nodes []*protocols.Node) (string, 
 }
 
 // ConvertToClash converts nodes to Clash subscription format
-func (c *SubscriptionConverter) ConvertToClash(nodes []*protocols.Node) (string, error) {
+func (c *SubscriptionConverter) ConvertToClash(nodes []*models.Node) (string, error) {
 	config := map[string]interface{}{
 		"port":                7890,
 		"socks-port":          7891,
@@ -84,7 +85,7 @@ func (c *SubscriptionConverter) ConvertToClash(nodes []*protocols.Node) (string,
 }
 
 // ConvertToSingbox converts nodes to sing-box subscription format
-func (c *SubscriptionConverter) ConvertToSingbox(nodes []*protocols.Node) (string, error) {
+func (c *SubscriptionConverter) ConvertToSingbox(nodes []*models.Node) (string, error) {
 	config := map[string]interface{}{
 		"log": map[string]interface{}{
 			"level":  "info",
@@ -142,7 +143,7 @@ func (c *SubscriptionConverter) ConvertToSingbox(nodes []*protocols.Node) (strin
 }
 
 // convertNodeToClashProxy converts a Node to Clash proxy configuration
-func convertNodeToClashProxy(node *protocols.Node) (map[string]interface{}, error) {
+func convertNodeToClashProxy(node *models.Node) (map[string]interface{}, error) {
 	proxy := map[string]interface{}{
 		"name":   node.Name,
 		"type":   node.Type,
@@ -157,7 +158,7 @@ func convertNodeToClashProxy(node *protocols.Node) (map[string]interface{}, erro
 
 	case "vmess":
 		proxy["uuid"] = node.UUID
-		proxy["alterId"] = node.AlterId
+		proxy["alterId"] = node.AlterID
 		if node.Network != "" {
 			proxy["network"] = node.Network
 			switch node.Network {
@@ -202,12 +203,6 @@ func convertNodeToClashProxy(node *protocols.Node) (map[string]interface{}, erro
 
 	case "hy2":
 		proxy["password"] = node.Password
-		if node.Up != "" {
-			proxy["up"] = node.Up
-		}
-		if node.Down != "" {
-			proxy["down"] = node.Down
-		}
 
 	case "tuic":
 		proxy["uuid"] = node.UUID
@@ -231,7 +226,7 @@ func convertNodeToClashProxy(node *protocols.Node) (map[string]interface{}, erro
 }
 
 // convertNodeToSingboxOutbound converts a Node to sing-box outbound configuration
-func convertNodeToSingboxOutbound(node *protocols.Node) (map[string]interface{}, error) {
+func convertNodeToSingboxOutbound(node *models.Node) (map[string]interface{}, error) {
 	outbound := map[string]interface{}{
 		"type":        node.Type,
 		"tag":         node.Name,
@@ -246,7 +241,8 @@ func convertNodeToSingboxOutbound(node *protocols.Node) (map[string]interface{},
 
 	case "vmess":
 		outbound["uuid"] = node.UUID
-		outbound["alter_id"] = node.AlterId
+		outbound["alter_id"] = node.AlterID
+		outbound["security"] = "auto"
 
 	case "trojan":
 		outbound["password"] = node.Password

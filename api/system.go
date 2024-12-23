@@ -2,193 +2,173 @@ package api
 
 import (
 	"fmt"
-	"os/exec"
-	"strings"
-	"sync"
+	"os"
+	"runtime"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/v3/net"
+	"github.com/sirupsen/logrus"
+
+	"singdns/api/models"
 )
 
+// SystemManager handles system-related operations
 type SystemManager struct {
-	startTime time.Time
-	mu        sync.RWMutex
-	services  map[string]*ServiceInfo
+	logger        *logrus.Logger
+	startTime     time.Time
+	proxyManager  ProxyManager
+	configManager ConfigManager
 }
 
-type ServiceInfo struct {
-	Version string `json:"version"`
-	Uptime  string `json:"uptime"`
-	Status  string `json:"status"`
-}
-
-type SystemInfo struct {
-	CPU struct {
-		Usage float64 `json:"usage"`
-	} `json:"cpu"`
-	Memory struct {
-		Total float64 `json:"total"`
-		Used  float64 `json:"used"`
-	} `json:"memory"`
-	Network struct {
-		Speed struct {
-			Up   float64 `json:"up"`
-			Down float64 `json:"down"`
-		} `json:"speed"`
-	} `json:"network"`
-	Singbox *ServiceInfo `json:"singbox"`
-	Mosdns  *ServiceInfo `json:"mosdns"`
-}
-
-func NewSystemManager() *SystemManager {
+// NewSystemManager creates a new system manager
+func NewSystemManager(logger *logrus.Logger, proxyManager ProxyManager, configManager ConfigManager) *SystemManager {
 	return &SystemManager{
-		startTime: time.Now(),
-		services: map[string]*ServiceInfo{
-			"singbox": {Status: "stopped"},
-			"mosdns":  {Status: "stopped"},
-		},
+		logger:        logger,
+		startTime:     time.Now(),
+		proxyManager:  proxyManager,
+		configManager: configManager,
 	}
 }
 
-func (m *SystemManager) GetStatus() (*SystemInfo, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	status := &SystemInfo{
-		Singbox: m.services["singbox"],
-		Mosdns:  m.services["mosdns"],
-	}
-
-	// CPU 使用率
-	cpuPercent, err := cpu.Percent(0, false)
+// GetSystemInfo returns current system information
+func (s *SystemManager) GetSystemInfo() (*models.SystemInfo, error) {
+	// Get hostname
+	hostname, err := os.Hostname()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get CPU usage: %v", err)
-	}
-	if len(cpuPercent) > 0 {
-		status.CPU.Usage = cpuPercent[0]
+		s.logger.WithError(err).Error("Failed to get hostname")
+		hostname = "unknown"
 	}
 
-	// 内存使用情况
+	// Get CPU usage
+	cpuPercent, err := cpu.Percent(time.Second, false)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to get CPU usage")
+		cpuPercent = []float64{0}
+	}
+
+	// Get memory info
 	memInfo, err := mem.VirtualMemory()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get memory info: %v", err)
-	}
-	status.Memory.Total = float64(memInfo.Total) / 1024 / 1024 / 1024 // 转换为 GB
-	status.Memory.Used = float64(memInfo.Used) / 1024 / 1024 / 1024   // 转换为 GB
-
-	return status, nil
-}
-
-func (m *SystemManager) GetServices() map[string]*ServiceInfo {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.services
-}
-
-func (m *SystemManager) StartService(name string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	service, exists := m.services[name]
-	if !exists {
-		return fmt.Errorf("service %s not found", name)
+		s.logger.WithError(err).Error("Failed to get memory info")
+		memInfo = &mem.VirtualMemoryStat{}
 	}
 
-	if service.Status == "running" {
-		return fmt.Errorf("service %s is already running", name)
-	}
-
-	var cmd *exec.Cmd
-	switch name {
-	case "singbox":
-		cmd = exec.Command("./bin/sing-box", "run")
-	case "mosdns":
-		cmd = exec.Command("./bin/mosdns", "start")
-	default:
-		return fmt.Errorf("unknown service: %s", name)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start %s: %v", name, err)
-	}
-
-	service.Status = "running"
-	service.Version = m.getServiceVersion(name)
-	return nil
-}
-
-func (m *SystemManager) StopService(name string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	service, exists := m.services[name]
-	if !exists {
-		return fmt.Errorf("service %s not found", name)
-	}
-
-	if service.Status == "stopped" {
-		return fmt.Errorf("service %s is already stopped", name)
-	}
-
-	var cmd *exec.Cmd
-	switch name {
-	case "singbox":
-		cmd = exec.Command("pkill", "sing-box")
-	case "mosdns":
-		cmd = exec.Command("pkill", "mosdns")
-	default:
-		return fmt.Errorf("unknown service: %s", name)
-	}
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to stop %s: %v", name, err)
-	}
-
-	service.Status = "stopped"
-	return nil
-}
-
-func (m *SystemManager) RestartService(name string) error {
-	if err := m.StopService(name); err != nil {
-		return fmt.Errorf("failed to stop service: %v", err)
-	}
-	time.Sleep(time.Second) // 等待服务完全停止
-	if err := m.StartService(name); err != nil {
-		return fmt.Errorf("failed to start service: %v", err)
-	}
-	return nil
-}
-
-func (m *SystemManager) getServiceVersion(name string) string {
-	var cmd *exec.Cmd
-	switch name {
-	case "singbox":
-		cmd = exec.Command("./bin/sing-box", "version")
-	case "mosdns":
-		cmd = exec.Command("./bin/mosdns", "version")
-	default:
-		return "unknown"
-	}
-
-	output, err := cmd.Output()
+	// Get network stats
+	netStats, err := net.IOCounters(false)
 	if err != nil {
-		LogWarning("Failed to get %s version: %v", name, err)
-		return "unknown"
+		s.logger.WithError(err).Error("Failed to get network stats")
+		netStats = []net.IOCountersStat{{}}
 	}
-	return strings.TrimSpace(string(output))
+
+	// Get uptime
+	hostInfo, err := host.Info()
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to get host info")
+		hostInfo = &host.InfoStat{}
+	}
+
+	// Get connections count from proxy manager
+	connections := s.proxyManager.GetConnectionsCount()
+
+	return &models.SystemInfo{
+		Version:         s.proxyManager.GetVersion(),
+		StartTime:       s.proxyManager.GetStartTime(),
+		IsRunning:       s.proxyManager.IsRunning(),
+		ConfigPath:      s.proxyManager.GetConfigPath(),
+		Hostname:        hostname,
+		Platform:        fmt.Sprintf("%s %s", runtime.GOOS, runtime.GOARCH),
+		Arch:            runtime.GOARCH,
+		Uptime:          int64(hostInfo.Uptime),
+		CPUUsage:        cpuPercent[0],
+		MemoryTotal:     uint64(memInfo.Total),
+		MemoryUsed:      uint64(memInfo.Used),
+		NetworkUpload:   uint64(netStats[0].BytesSent),
+		NetworkDownload: uint64(netStats[0].BytesRecv),
+		Connections:     connections,
+	}, nil
 }
 
-func (m *SystemManager) formatUptime(d time.Duration) string {
-	days := int(d.Hours()) / 24
-	hours := int(d.Hours()) % 24
-	minutes := int(d.Minutes()) % 60
+// GetSystemStatus returns current system and services status
+func (s *SystemManager) GetSystemStatus() (*models.SystemStatus, error) {
+	singboxStatus := "stopped"
+	if s.proxyManager.IsRunning() {
+		singboxStatus = "running"
+	}
 
-	if days > 0 {
-		return fmt.Sprintf("%d天 %d小时 %d分钟", days, hours, minutes)
+	mosdnsStatus := "stopped"
+	if s.configManager.IsMosdnsRunning() {
+		mosdnsStatus = "running"
 	}
-	if hours > 0 {
-		return fmt.Sprintf("%d小时 %d分钟", hours, minutes)
+
+	return &models.SystemStatus{
+		Services: []models.ServicesStatus{
+			{
+				Name:      "singbox",
+				Status:    singboxStatus,
+				IsRunning: s.proxyManager.IsRunning(),
+				Version:   s.proxyManager.GetVersion(),
+				Uptime:    int64(time.Since(s.proxyManager.GetStartTime()).Seconds()),
+			},
+			{
+				Name:      "mosdns",
+				Status:    mosdnsStatus,
+				IsRunning: s.configManager.IsMosdnsRunning(),
+				Version:   s.configManager.GetMosdnsVersion(),
+				Uptime:    s.configManager.GetMosdnsUptime(),
+			},
+		},
+	}, nil
+}
+
+// StartService starts a system service
+func (s *SystemManager) StartService(name string) error {
+	s.logger.WithField("service", name).Info("Starting service")
+
+	switch name {
+	case "singbox":
+		return s.proxyManager.Start()
+	case "mosdns":
+		return s.configManager.StartMosdns()
+	default:
+		return fmt.Errorf("unknown service: %s", name)
 	}
-	return fmt.Sprintf("%d分钟", minutes)
+}
+
+// StopService stops a system service
+func (s *SystemManager) StopService(name string) error {
+	s.logger.WithField("service", name).Info("Stopping service")
+
+	switch name {
+	case "singbox":
+		return s.proxyManager.Stop()
+	case "mosdns":
+		return s.configManager.StopMosdns()
+	default:
+		return fmt.Errorf("unknown service: %s", name)
+	}
+}
+
+// RestartService restarts a system service
+func (s *SystemManager) RestartService(name string) error {
+	s.logger.WithField("service", name).Info("Restarting service")
+
+	switch name {
+	case "singbox":
+		if err := s.proxyManager.Stop(); err != nil {
+			return err
+		}
+		time.Sleep(time.Second) // Wait for service to stop
+		return s.proxyManager.Start()
+	case "mosdns":
+		if err := s.configManager.StopMosdns(); err != nil {
+			return err
+		}
+		time.Sleep(time.Second) // Wait for service to stop
+		return s.configManager.StartMosdns()
+	default:
+		return fmt.Errorf("unknown service: %s", name)
+	}
 }

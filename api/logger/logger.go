@@ -43,6 +43,13 @@ func LogInfo(format string, v ...interface{}) {
 	}
 }
 
+// LogDebug logs a debug message
+func LogDebug(format string, v ...interface{}) {
+	if infoLogger != nil {
+		infoLogger.Printf("DEBUG: "+format, v...)
+	}
+}
+
 // LogWarning logs a warning message
 func LogWarning(format string, v ...interface{}) {
 	if warningLogger != nil {

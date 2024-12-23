@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"singdns/api/models"
 )
 
 // VMessProtocol implements the VMess protocol
@@ -16,7 +17,7 @@ type VMessConfig struct {
 	Address string `json:"add"`
 	Port    int    `json:"port"`
 	UUID    string `json:"id"`
-	AlterId int    `json:"aid"`
+	AlterID int    `json:"aid"`
 	Network string `json:"net"`
 	Type    string `json:"type"`
 	Host    string `json:"host"`
@@ -30,7 +31,7 @@ func init() {
 
 // ParseURL parses a VMess URL into a Node
 // Format: vmess://base64(json)
-func (p *VMessProtocol) ParseURL(u *url.URL) (*Node, error) {
+func (p *VMessProtocol) ParseURL(u *url.URL) (*models.Node, error) {
 	// Remove "vmess://" prefix
 	encoded := u.String()[8:]
 
@@ -47,13 +48,13 @@ func (p *VMessProtocol) ParseURL(u *url.URL) (*Node, error) {
 	}
 
 	// Create node
-	node := &Node{
+	node := &models.Node{
 		Type:    "vmess",
 		Name:    config.Name,
 		Address: config.Address,
 		Port:    config.Port,
 		UUID:    config.UUID,
-		AlterId: config.AlterId,
+		AlterID: config.AlterID,
 		Network: config.Network,
 		Path:    config.Path,
 		Host:    config.Host,
@@ -64,7 +65,7 @@ func (p *VMessProtocol) ParseURL(u *url.URL) (*Node, error) {
 }
 
 // ToURL converts a Node to a VMess URL
-func (p *VMessProtocol) ToURL(node *Node) (string, error) {
+func (p *VMessProtocol) ToURL(node *models.Node) (string, error) {
 	if err := p.Validate(node); err != nil {
 		return "", err
 	}
@@ -76,7 +77,7 @@ func (p *VMessProtocol) ToURL(node *Node) (string, error) {
 		Address: node.Address,
 		Port:    node.Port,
 		UUID:    node.UUID,
-		AlterId: node.AlterId,
+		AlterID: node.AlterID,
 		Network: node.Network,
 		Type:    "none",
 		Host:    node.Host,
@@ -98,7 +99,7 @@ func (p *VMessProtocol) ToURL(node *Node) (string, error) {
 }
 
 // Validate validates a VMess node configuration
-func (p *VMessProtocol) Validate(node *Node) error {
+func (p *VMessProtocol) Validate(node *models.Node) error {
 	if node.Type != "vmess" {
 		return fmt.Errorf("invalid node type: %s", node.Type)
 	}
@@ -115,8 +116,8 @@ func (p *VMessProtocol) Validate(node *Node) error {
 		return fmt.Errorf("missing UUID")
 	}
 
-	if node.AlterId < 0 {
-		return fmt.Errorf("invalid alter ID: %d", node.AlterId)
+	if node.AlterID < 0 {
+		return fmt.Errorf("invalid alter ID: %d", node.AlterID)
 	}
 
 	switch node.Network {

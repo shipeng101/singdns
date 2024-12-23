@@ -7,6 +7,7 @@ export const getCommonStyles = (theme) => ({
       : 'linear-gradient(45deg, #3949ab 30%, #5e35b1 90%)',
     color: '#fff',
     borderRadius: '12px',
+    marginBottom: '24px',
     boxShadow: theme.palette.mode === 'dark'
       ? '0 4px 20px 0 rgba(0,0,0,0.25)'
       : '0 4px 20px 0 rgba(0,0,0,0.15)',

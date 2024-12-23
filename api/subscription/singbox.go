@@ -3,156 +3,107 @@ package subscription
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	"singdns/api/protocols"
+	"singdns/api/logger"
+	"singdns/api/models"
 )
 
-// SingboxConfig represents sing-box configuration
-type SingboxConfig struct {
-	Outbounds []SingboxOutbound `json:"outbounds"`
-}
+// parseSingboxSubscription parses a SingBox subscription
+func parseSingboxSubscription(content []byte) ([]*models.Node, error) {
+	logger.LogDebug("开始解析 SingBox 配置")
 
-// SingboxOutbound represents a sing-box outbound
-type SingboxOutbound struct {
-	Tag            string                 `json:"tag"`
-	Type           string                 `json:"type"`
-	Server         string                 `json:"server"`
-	ServerPort     int                    `json:"server_port"`
-	Method         string                 `json:"method,omitempty"`
-	Password       string                 `json:"password,omitempty"`
-	UUID           string                 `json:"uuid,omitempty"`
-	AlterID        int                    `json:"alter_id,omitempty"`
-	Network        string                 `json:"network,omitempty"`
-	TLS            *SingboxTLS            `json:"tls,omitempty"`
-	Transport      *SingboxTransport      `json:"transport,omitempty"`
-	Multiplex      *SingboxMultiplex      `json:"multiplex,omitempty"`
-	PacketEncoding string                 `json:"packet_encoding,omitempty"`
-	Flow           string                 `json:"flow,omitempty"`
-	UoT            bool                   `json:"udp_over_tcp,omitempty"`
-	Options        map[string]interface{} `json:"options,omitempty"`
-}
+	var config struct {
+		Outbounds []struct {
+			Tag        string `json:"tag"`
+			Type       string `json:"type"`
+			Server     string `json:"server"`
+			ServerPort int    `json:"server_port"`
+			Password   string `json:"password"`
+			Method     string `json:"method"`
+			UUID       string `json:"uuid"`
+			AlterID    int    `json:"alter_id"`
+			Network    string `json:"network"`
+			TLS        struct {
+				Enabled     bool     `json:"enabled"`
+				ServerName  string   `json:"server_name"`
+				Insecure    bool     `json:"insecure"`
+				ALPN        []string `json:"alpn"`
+				Fingerprint string   `json:"fingerprint"`
+			} `json:"tls"`
+			Transport struct {
+				Type        string            `json:"type"`
+				Path        string            `json:"path"`
+				Host        string            `json:"host"`
+				ServiceName string            `json:"service_name"`
+				Headers     map[string]string `json:"headers"`
+			} `json:"transport"`
+			Flow string `json:"flow"`
+		} `json:"outbounds"`
+	}
 
-// SingboxTLS represents TLS configuration
-type SingboxTLS struct {
-	Enabled         bool     `json:"enabled"`
-	ServerName      string   `json:"server_name,omitempty"`
-	Insecure        bool     `json:"insecure,omitempty"`
-	ALPN            []string `json:"alpn,omitempty"`
-	ECH             bool     `json:"ech,omitempty"`
-	UtlsEnabled     bool     `json:"utls,omitempty"`
-	UtlsFingerprint string   `json:"utls_fingerprint,omitempty"`
-}
-
-// SingboxTransport represents transport configuration
-type SingboxTransport struct {
-	Type           string            `json:"type"`
-	Path           string            `json:"path,omitempty"`
-	Headers        map[string]string `json:"headers,omitempty"`
-	ServiceName    string            `json:"service_name,omitempty"`
-	MaxConcurrency int               `json:"max_concurrent_streams,omitempty"`
-}
-
-// SingboxMultiplex represents multiplex configuration
-type SingboxMultiplex struct {
-	Enabled bool `json:"enabled"`
-}
-
-// ParseSingbox parses sing-box subscription content
-func ParseSingbox(content []byte) ([]*protocols.Node, error) {
-	var config SingboxConfig
 	if err := json.Unmarshal(content, &config); err != nil {
-		return nil, fmt.Errorf("invalid sing-box config: %v", err)
+		return nil, fmt.Errorf("failed to parse SingBox config: %v", err)
 	}
 
-	nodes := make([]*protocols.Node, 0, len(config.Outbounds))
-	for _, outbound := range config.Outbounds {
-		node, err := convertSingboxOutbound(&outbound)
-		if err != nil {
-			log.Printf("Warning: %v", err)
-			continue
-		}
-		nodes = append(nodes, node)
-	}
+	var nodes []*models.Node
+	for i, outbound := range config.Outbounds {
+		logger.LogDebug("正在解析第 %d 个出站: %s (%s)", i+1, outbound.Tag, outbound.Type)
 
-	return nodes, nil
-}
+		// 只处理支持的代理类型
+		switch outbound.Type {
+		case "shadowsocks", "vmess", "trojan", "vless":
+			node := &models.Node{
+				Name:     outbound.Tag,
+				Type:     outbound.Type,
+				Address:  outbound.Server,
+				Port:     outbound.ServerPort,
+				Method:   outbound.Method,
+				Password: outbound.Password,
+				UUID:     outbound.UUID,
+				AlterID:  outbound.AlterID,
+				Network:  outbound.Network,
+				Flow:     outbound.Flow,
+			}
 
-// convertSingboxOutbound converts a sing-box outbound to a Node
-func convertSingboxOutbound(outbound *SingboxOutbound) (*protocols.Node, error) {
-	node := &protocols.Node{
-		Name:    outbound.Tag,
-		Type:    outbound.Type,
-		Address: outbound.Server,
-		Port:    outbound.ServerPort,
-	}
+			// 处理 TLS 设置
+			if outbound.TLS.Enabled {
+				node.TLS = true
+				node.SNI = outbound.TLS.ServerName
+				node.SkipCertVerify = outbound.TLS.Insecure
+				node.ALPN = outbound.TLS.ALPN
+				node.Fingerprint = outbound.TLS.Fingerprint
+			}
 
-	// Set TLS configuration
-	if outbound.TLS != nil && outbound.TLS.Enabled {
-		node.TLS = true
-		node.Host = outbound.TLS.ServerName
-	}
+			// 处理传输层设置
+			if outbound.Transport.Type != "" {
+				node.Network = outbound.Transport.Type
+				node.Path = outbound.Transport.Path
+				node.Host = outbound.Transport.Host
+				node.ServiceName = outbound.Transport.ServiceName
 
-	// Set transport configuration
-	if outbound.Transport != nil {
-		node.Network = outbound.Transport.Type
-		switch outbound.Transport.Type {
-		case "ws":
-			node.Path = outbound.Transport.Path
-			if h := outbound.Transport.Headers; h != nil {
-				if host, ok := h["Host"]; ok {
-					node.Host = host
+				// 处理 WebSocket 的 Host 头
+				if node.Network == "ws" && outbound.Transport.Headers != nil {
+					if host, ok := outbound.Transport.Headers["Host"]; ok {
+						node.Host = host
+					}
 				}
 			}
-		case "grpc":
-			node.Path = outbound.Transport.ServiceName
+
+			// 如果名称为空，生成一个
+			if node.Name == "" {
+				node.Name = fmt.Sprintf("%s-%s:%d", outbound.Type, node.Address, node.Port)
+			}
+
+			nodes = append(nodes, node)
+			logger.LogInfo("成功解析节点: %s (%s)", node.Name, node.Type)
+		default:
+			logger.LogDebug("跳过不支持的出站类型: %s", outbound.Type)
 		}
 	}
 
-	switch outbound.Type {
-	case "shadowsocks":
-		node.Type = "ss"
-		node.Method = outbound.Method
-		node.Password = outbound.Password
-
-	case "vmess":
-		node.UUID = outbound.UUID
-		node.AlterId = outbound.AlterID
-
-	case "trojan":
-		node.Password = outbound.Password
-
-	case "vless":
-		node.Type = "vless"
-		node.UUID = outbound.UUID
-		if outbound.Flow != "" {
-			node.Flow = outbound.Flow
-		}
-
-	case "hysteria2":
-		node.Type = "hy2"
-		node.Password = outbound.Password
-		if opts := outbound.Options; opts != nil {
-			if up, ok := opts["up"].(string); ok {
-				node.Up = up
-			}
-			if down, ok := opts["down"].(string); ok {
-				node.Down = down
-			}
-		}
-
-	case "tuic":
-		node.Type = "tuic"
-		node.UUID = outbound.UUID
-		node.Password = outbound.Password
-		if opts := outbound.Options; opts != nil {
-			if cc, ok := opts["congestion_control"].(string); ok {
-				node.CC = cc
-			}
-		}
-
-	default:
-		return nil, fmt.Errorf("unsupported outbound type: %s", outbound.Type)
+	if len(nodes) == 0 {
+		return nil, fmt.Errorf("未找到有效的节点")
 	}
 
-	return node, nil
+	logger.LogInfo("成功解析 %d 个节点", len(nodes))
+	return nodes, nil
 }

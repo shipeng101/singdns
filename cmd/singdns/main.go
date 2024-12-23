@@ -2,98 +2,93 @@ package main
 
 import (
 	"flag"
-	"log"
+	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"singdns/api"
+	"singdns/api/auth"
+	"singdns/api/proxy"
+	"singdns/api/storage"
 	"syscall"
 	"time"
 
-	"singdns/api"
-)
-
-var (
-	configDir   = flag.String("config", "configs", "配置文件目录")
-	apiAddr     = flag.String("api", ":8080", "API 服务地址")
-	pprofAddr   = flag.String("pprof", ":6060", "pprof 服务地址")
-	metricsAddr = flag.String("metrics", ":9090", "Prometheus metrics 服务地址")
-	logConfig   = &api.LogConfig{
-		Level:      "info",
-		Filename:   "logs/singdns.log",
-		MaxSize:    100,  // 100MB
-		MaxBackups: 30,   // 保留30个备份
-		MaxAge:     7,    // 保留7天
-		Compress:   true, // 压缩旧日志
-		Console:    true, // 同时输出到控制台
-	}
+	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
+	// Parse command line flags
+	var (
+		configPath string
+		dbPath     string
+		logLevel   string
+		adminUser  string
+		adminPass  string
+		jwtSecret  string
+	)
+
+	flag.StringVar(&configPath, "config", "config.yaml", "Path to config file")
+	flag.StringVar(&dbPath, "db", "data/singdns.db", "Path to SQLite database file")
+	flag.StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
+	flag.StringVar(&adminUser, "admin", "admin", "Admin username")
+	flag.StringVar(&adminPass, "password", "admin", "Admin password")
+	flag.StringVar(&jwtSecret, "secret", "your-secret-key", "JWT secret key")
 	flag.Parse()
 
-	// 初始化日志系统
-	if err := api.InitLogger(logConfig); err != nil {
-		log.Fatalf("Failed to initialize logger: %v", err)
-	}
-
-	// 创建必要的目录
-	dirs := []string{
-		*configDir,
-		filepath.Dir(logConfig.Filename),
-		filepath.Join(*configDir, "sing-box"),
-		filepath.Join(*configDir, "mosdns"),
-	}
-	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			api.LogError(err, "Failed to create directory", "path", dir)
-			os.Exit(1)
-		}
-	}
-
-	// 创建配置管理器
-	configManager, err := api.NewConfigManager(*configDir)
+	// Initialize logger
+	logger := logrus.New()
+	level, err := logrus.ParseLevel(logLevel)
 	if err != nil {
-		api.LogError(err, "Failed to create config manager")
-		os.Exit(1)
+		logger.Fatal(err)
 	}
-	defer configManager.Close()
+	logger.SetLevel(level)
+	logger.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp: true,
+	})
 
-	// 启动性能监控
-	monitor, err := api.NewMonitor(5 * time.Second)
+	// Create data directory if not exists
+	dataDir := filepath.Dir(dbPath)
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		logger.Fatal(err)
+	}
+
+	// Initialize storage
+	db, err := storage.NewSQLiteStorage(dbPath)
 	if err != nil {
-		api.LogError(err, "Failed to create monitor")
-		os.Exit(1)
+		logger.Fatal(err)
 	}
-	defer monitor.Stop()
+	defer db.Close()
 
-	// 启动 pprof 服务
-	if err := api.StartProfiling(*pprofAddr); err != nil {
-		api.LogError(err, "Failed to start pprof server")
-		os.Exit(1)
-	}
+	// Initialize proxy manager
+	proxyManager := proxy.NewManager(logger, configPath, db)
 
-	// 启动 Prometheus metrics 服务
-	if err := api.StartMetrics(*metricsAddr); err != nil {
-		api.LogError(err, "Failed to start metrics server")
-		os.Exit(1)
+	// Hash admin password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(adminPass), bcrypt.DefaultCost)
+	if err != nil {
+		logger.Fatal(err)
 	}
 
-	// 创建 API 服务器
-	server := api.NewServer(configManager)
+	// Initialize API server
+	config := &api.Config{
+		UpdateInterval: 24 * time.Hour, // Default update interval
+		Auth:           auth.NewManager(adminUser, string(hashedPassword), []byte(jwtSecret)),
+	}
+	server := api.NewServer(db, proxyManager, logger, config)
 
-	// 启动 API 服务器
+	// Start server
 	go func() {
-		api.LogInfo("API server starting", "address", *apiAddr)
-		if err := server.Run(*apiAddr); err != nil {
-			api.LogError(err, "Failed to start API server")
-			os.Exit(1)
+		if err := server.Start(); err != nil {
+			logger.Fatal(err)
 		}
 	}()
 
-	// 等待中断信号
+	// Wait for interrupt signal
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
 
-	api.LogInfo("Shutting down...")
+	// Shutdown server
+	server.Stop()
+	fmt.Println("Server stopped")
 }

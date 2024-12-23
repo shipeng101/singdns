@@ -3,6 +3,7 @@ package protocols
 import (
 	"fmt"
 	"net/url"
+	"singdns/api/models"
 	"strconv"
 	"strings"
 )
@@ -26,8 +27,8 @@ func init() {
 
 // ParseURL parses a Shadowsocks URL into a Node
 // Format: ss://method:password@host:port#name
-func (p *ShadowsocksProtocol) ParseURL(u *url.URL) (*Node, error) {
-	node := &Node{
+func (p *ShadowsocksProtocol) ParseURL(u *url.URL) (*models.Node, error) {
+	node := &models.Node{
 		Type: "ss",
 		Name: u.Fragment,
 	}
@@ -78,7 +79,7 @@ func (p *ShadowsocksProtocol) ParseURL(u *url.URL) (*Node, error) {
 }
 
 // ToURL converts a Node to a Shadowsocks URL
-func (p *ShadowsocksProtocol) ToURL(node *Node) (string, error) {
+func (p *ShadowsocksProtocol) ToURL(node *models.Node) (string, error) {
 	if err := p.Validate(node); err != nil {
 		return "", err
 	}
@@ -99,7 +100,7 @@ func (p *ShadowsocksProtocol) ToURL(node *Node) (string, error) {
 }
 
 // Validate validates a Shadowsocks node configuration
-func (p *ShadowsocksProtocol) Validate(node *Node) error {
+func (p *ShadowsocksProtocol) Validate(node *models.Node) error {
 	if node.Type != "ss" {
 		return fmt.Errorf("invalid node type: %s", node.Type)
 	}

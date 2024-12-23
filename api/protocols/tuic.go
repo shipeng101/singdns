@@ -3,6 +3,7 @@ package protocols
 import (
 	"fmt"
 	"net/url"
+	"singdns/api/models"
 )
 
 // TUICProtocol implements the TUIC protocol
@@ -14,8 +15,8 @@ func init() {
 
 // ParseURL parses a TUIC URL into a Node
 // Format: tuic://uuid:password@host:port?congestion_control=bbr&alpn=h3&sni=example.com#name
-func (p *TUICProtocol) ParseURL(u *url.URL) (*Node, error) {
-	node := &Node{
+func (p *TUICProtocol) ParseURL(u *url.URL) (*models.Node, error) {
+	node := &models.Node{
 		Type: "tuic",
 		Name: u.Fragment,
 		TLS:  true, // TUIC always uses TLS
@@ -57,14 +58,14 @@ func (p *TUICProtocol) ParseURL(u *url.URL) (*Node, error) {
 
 	// ALPN
 	if alpn := query.Get("alpn"); alpn != "" {
-		// TODO: Handle ALPN
+		node.ALPN = models.StringSlice{alpn}
 	}
 
 	return node, nil
 }
 
 // ToURL converts a Node to a TUIC URL
-func (p *TUICProtocol) ToURL(node *Node) (string, error) {
+func (p *TUICProtocol) ToURL(node *models.Node) (string, error) {
 	if err := p.Validate(node); err != nil {
 		return "", err
 	}
@@ -89,6 +90,11 @@ func (p *TUICProtocol) ToURL(node *Node) (string, error) {
 		query.Set("congestion_control", node.CC)
 	}
 
+	// ALPN
+	if len(node.ALPN) > 0 {
+		query.Set("alpn", node.ALPN[0])
+	}
+
 	if len(query) > 0 {
 		u.RawQuery = query.Encode()
 	}
@@ -97,7 +103,7 @@ func (p *TUICProtocol) ToURL(node *Node) (string, error) {
 }
 
 // Validate validates a TUIC node configuration
-func (p *TUICProtocol) Validate(node *Node) error {
+func (p *TUICProtocol) Validate(node *models.Node) error {
 	if node.Type != "tuic" {
 		return fmt.Errorf("invalid node type: %s", node.Type)
 	}

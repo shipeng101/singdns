@@ -29,7 +29,8 @@ import {
   ListItemText,
   ListItemSecondaryAction,
   ListItemIcon,
-  Divider
+  Divider,
+  Grid
 } from '@mui/material';
 import {
   DarkMode as DarkModeIcon,
@@ -53,15 +54,13 @@ const Subscriptions = ({ mode, setMode, onDashboardClick }) => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState(null);
   const [editSubscription, setEditSubscription] = useState({
+    id: '',
     name: '',
-    type: 'singbox',
     url: '',
-    autoUpdate: false,
-    updateInterval: {
-      value: 1,
-      unit: 'hour'
-    },
-    active: true
+    type: 'v2ray',
+    active: true,
+    auto_update: true,
+    update_interval: 3600,
   });
 
   const subscriptionTypes = [
@@ -86,7 +85,11 @@ const Subscriptions = ({ mode, setMode, onDashboardClick }) => {
     try {
       setLoading(true);
       const data = await getSubscriptions();
-      setSubscriptions(data);
+      const processedData = data.map(subscription => ({
+        ...subscription,
+        active: subscription.active ?? true
+      }));
+      setSubscriptions(processedData);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.error || '获取数据失败');
@@ -157,24 +160,26 @@ const Subscriptions = ({ mode, setMode, onDashboardClick }) => {
 
   const handleSave = async () => {
     try {
-      setLoading(true);
-      const subscriptionData = {
+      const payload = {
         ...editSubscription,
-        updateInterval: editSubscription.autoUpdate ? formatUpdateInterval(editSubscription.updateInterval) : 0
+        active: Boolean(editSubscription.active),
+        auto_update: Boolean(editSubscription.auto_update),
+        update_interval: Number(editSubscription.update_interval),
       };
 
-      if (selectedSubscription) {
-        await updateSubscription(selectedSubscription.id, subscriptionData);
+      setOpenDialog(false);
+
+      if (editSubscription.id) {
+        await updateSubscription(editSubscription.id, payload);
       } else {
-        await createSubscription(subscriptionData);
+        await createSubscription(payload);
       }
+      
       await fetchData();
       setSuccess(true);
-      handleCloseDialog();
-    } catch (err) {
-      setError(err.response?.data?.error || '保存订阅失败');
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Failed to save subscription:', error);
+      setError(error.message || '保存失败');
     }
   };
 
@@ -257,143 +262,204 @@ const Subscriptions = ({ mode, setMode, onDashboardClick }) => {
 
       {loading && <LinearProgress sx={{ mb: 1 }} />}
 
-      <Card sx={{ ...styles.card, mt: 1.5 }}>
-        <CardContent>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-            <Typography variant="h6">订阅列表</Typography>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => handleOpenDialog()}
-              sx={styles.actionButton}
-            >
-              添加订阅
-            </Button>
-          </Stack>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => handleOpenDialog()}
+          sx={styles.actionButton}
+        >
+          添加订阅
+        </Button>
+      </Box>
 
-          <List sx={{ width: '100%' }}>
-            {subscriptions.map((subscription, index) => (
-              <React.Fragment key={subscription.id}>
-                {index > 0 && <Divider component="li" />}
-                <ListItem
-                  sx={{
-                    py: 2,
-                    px: 0,
-                    '&:hover': {
-                      backgroundColor: 'action.hover',
-                      borderRadius: 1
-                    }
-                  }}
-                >
-                  <ListItemIcon>
-                    <Chip 
-                      label={subscription.type} 
-                      size="small"
-                      sx={{
-                        ...styles.chip.primary,
-                        background: 'linear-gradient(45deg, #3949ab 30%, #5e35b1 90%)',
-                        color: '#fff',
+      <Grid container spacing={2} sx={{ maxWidth: '1600px', mx: 'auto' }}>
+        {subscriptions.map((subscription) => (
+          <Grid item xs={12} sm={6} md={4} lg={3} key={subscription.id}>
+            <Box sx={{ maxWidth: '280px', mx: 'auto', width: '100%' }}>
+              <Card sx={{
+                position: 'relative',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: (theme) => theme.shadows[4],
+                },
+                '&::before': {
+                  content: '""',
+                  display: 'block',
+                  paddingTop: '75%',
+                },
+                '& > *': {
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                },
+              }}>
+                <CardContent sx={{ 
+                  flexGrow: 1,
+                  p: 1.5,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  '&:last-child': { pb: 1.5 },
+                }}>
+                  <Stack spacing={1}>
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5} alignItems="center">
+                      <Typography variant="subtitle1" sx={{ 
                         fontWeight: 500,
-                      }}
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
-                          {subscription.name}
-                        </Typography>
+                        fontSize: '0.95rem',
+                      }}>
+                        {subscription.name}
+                      </Typography>
+                      <Chip 
+                        label={`${subscription.node_count || 0} 个节点`}
+                        size="small"
+                        sx={{
+                          ...styles.chip.info,
+                          background: 'linear-gradient(45deg, #2196f3 30%, #64b5f6 90%)',
+                          color: '#fff',
+                          fontWeight: 500,
+                          height: '20px',
+                          '& .MuiChip-label': {
+                            px: 1,
+                            fontSize: '0.75rem',
+                          },
+                        }}
+                      />
+                    </Stack>
+
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5}>
+                      <Chip 
+                        label={subscription.type} 
+                        size="small"
+                        sx={{
+                          ...styles.chip.primary,
+                          background: 'linear-gradient(45deg, #3949ab 30%, #5e35b1 90%)',
+                          color: '#fff',
+                          fontWeight: 500,
+                          height: '20px',
+                          '& .MuiChip-label': {
+                            px: 1,
+                            fontSize: '0.75rem',
+                          },
+                        }}
+                      />
+                      <Chip 
+                        label={subscription.active ? "已启用" : "已禁用"} 
+                        size="small"
+                        sx={subscription.active ? {
+                          ...styles.chip.success,
+                          background: 'linear-gradient(45deg, #4caf50 30%, #81c784 90%)',
+                          color: '#fff',
+                          fontWeight: 500,
+                          height: '20px',
+                          '& .MuiChip-label': {
+                            px: 1,
+                            fontSize: '0.75rem',
+                          },
+                        } : {
+                          ...styles.chip.error,
+                          background: 'linear-gradient(45deg, #f44336 30%, #e57373 90%)',
+                          color: '#fff',
+                          fontWeight: 500,
+                          height: '20px',
+                          '& .MuiChip-label': {
+                            px: 1,
+                            fontSize: '0.75rem',
+                          },
+                        }}
+                      />
+                      {subscription.autoUpdate && (
                         <Chip 
-                          label={subscription.active ? "已启用" : "已禁用"} 
+                          label={`${subscription.updateInterval}分钟更新`} 
                           size="small"
-                          sx={subscription.active ? {
-                            ...styles.chip.success,
-                            background: 'linear-gradient(45deg, #4caf50 30%, #81c784 90%)',
+                          sx={{
+                            ...styles.chip.warning,
+                            background: 'linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)',
                             color: '#fff',
                             fontWeight: 500,
-                          } : {
-                            ...styles.chip.error,
-                            background: 'linear-gradient(45deg, #f44336 30%, #e57373 90%)',
-                            color: '#fff',
-                            fontWeight: 500,
+                            height: '20px',
+                            '& .MuiChip-label': {
+                              px: 1,
+                              fontSize: '0.75rem',
+                            },
                           }}
                         />
-                        {subscription.autoUpdate && (
-                          <Chip 
-                            label={`自动更新: ${subscription.updateInterval}分钟`} 
-                            size="small"
-                            sx={{
-                              ...styles.chip.warning,
-                              background: 'linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)',
-                              color: '#fff',
-                              fontWeight: 500,
-                            }}
-                          />
-                        )}
-                      </Stack>
-                    }
-                    secondary={subscription.url}
-                    secondaryTypographyProps={{
-                      sx: {
-                        mt: 0.5,
-                        color: 'text.secondary',
-                        wordBreak: 'break-all'
-                      }
-                    }}
-                  />
-                  <ListItemSecondaryAction>
-                    <Stack direction="row" spacing={1}>
-                      <IconButton
-                        edge="end"
-                        size="small"
-                        onClick={() => handleUpdate(subscription.id)}
-                        sx={{
-                          color: 'text.secondary',
-                          '&:hover': {
-                            color: 'primary.main',
-                            backgroundColor: 'action.hover',
-                          },
-                        }}
-                      >
-                        <SyncIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        edge="end"
-                        size="small"
-                        onClick={() => handleOpenDialog(subscription)}
-                        sx={{
-                          color: 'text.secondary',
-                          '&:hover': {
-                            color: 'primary.main',
-                            backgroundColor: 'action.hover',
-                          },
-                        }}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        edge="end"
-                        size="small"
-                        onClick={() => handleDelete(subscription.id)}
-                        sx={{
-                          color: 'text.secondary',
-                          '&:hover': {
-                            color: 'error.main',
-                            backgroundColor: 'action.hover',
-                          },
-                        }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                      )}
                     </Stack>
-                  </ListItemSecondaryAction>
-                </ListItem>
-              </React.Fragment>
-            ))}
-          </List>
-        </CardContent>
-      </Card>
+
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary" 
+                      sx={{ 
+                        wordBreak: 'break-all',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      {subscription.url}
+                    </Typography>
+                  </Stack>
+
+                  <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleUpdate(subscription.id)}
+                      sx={{
+                        color: 'text.secondary',
+                        padding: '4px',
+                        '&:hover': {
+                          color: 'primary.main',
+                          backgroundColor: 'action.hover',
+                        },
+                      }}
+                    >
+                      <SyncIcon sx={{ fontSize: '1.1rem' }} />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleOpenDialog(subscription)}
+                      sx={{
+                        color: 'text.secondary',
+                        padding: '4px',
+                        '&:hover': {
+                          color: 'primary.main',
+                          backgroundColor: 'action.hover',
+                        },
+                      }}
+                    >
+                      <EditIcon sx={{ fontSize: '1.1rem' }} />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDelete(subscription.id)}
+                      sx={{
+                        color: 'text.secondary',
+                        padding: '4px',
+                        '&:hover': {
+                          color: 'error.main',
+                          backgroundColor: 'action.hover',
+                        },
+                      }}
+                    >
+                      <DeleteIcon sx={{ fontSize: '1.1rem' }} />
+                    </IconButton>
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Box>
+          </Grid>
+        ))}
+      </Grid>
 
       {/* Subscription Dialog */}
       <Dialog 
@@ -417,25 +483,6 @@ const Subscriptions = ({ mode, setMode, onDashboardClick }) => {
               onChange={(e) => setEditSubscription({ ...editSubscription, name: e.target.value })}
               size="small"
             />
-            <FormControl fullWidth size="small">
-              <InputLabel>订阅类型</InputLabel>
-              <Select
-                value={editSubscription.type}
-                label="订阅类型"
-                onChange={(e) => setEditSubscription({ ...editSubscription, type: e.target.value })}
-              >
-                {subscriptionTypes.map((type) => (
-                  <MenuItem key={type.value} value={type.value}>
-                    <Stack>
-                      <Typography variant="body1">{type.label}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {type.description}
-                      </Typography>
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
             <TextField
               fullWidth
               label="订阅地址"
@@ -443,64 +490,47 @@ const Subscriptions = ({ mode, setMode, onDashboardClick }) => {
               onChange={(e) => setEditSubscription({ ...editSubscription, url: e.target.value })}
               size="small"
               placeholder="https://example.com/subscribe"
+              helperText="支持 Clash、V2Ray、Shadowsocks 等多种格式，将自动识别订阅类型"
             />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={editSubscription.autoUpdate}
-                  onChange={(e) => setEditSubscription({ ...editSubscription, autoUpdate: e.target.checked })}
-                />
-              }
-              label="自动更新"
-            />
-            {editSubscription.autoUpdate && (
-              <Stack direction="row" spacing={1}>
-                <TextField
-                  type="number"
-                  label="更新间隔"
-                  value={editSubscription.updateInterval.value}
-                  onChange={(e) => setEditSubscription({
-                    ...editSubscription,
-                    updateInterval: {
-                      ...editSubscription.updateInterval,
-                      value: parseInt(e.target.value) || 1
-                    }
-                  })}
-                  size="small"
-                  sx={{ width: '40%' }}
-                  InputProps={{
-                    inputProps: { min: 1 }
-                  }}
-                />
-                <FormControl size="small" sx={{ width: '60%' }}>
-                  <InputLabel>时间单位</InputLabel>
-                  <Select
-                    value={editSubscription.updateInterval.unit}
-                    label="时间单位"
-                    onChange={(e) => setEditSubscription({
-                      ...editSubscription,
-                      updateInterval: {
-                        ...editSubscription.updateInterval,
-                        unit: e.target.value
-                      }
-                    })}
-                  >
-                    {updateIntervalUnits.map((unit) => (
-                      <MenuItem key={unit.value} value={unit.value}>{unit.label}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Stack>
-            )}
             <FormControlLabel
               control={
                 <Switch
                   checked={editSubscription.active}
-                  onChange={(e) => setEditSubscription({ ...editSubscription, active: e.target.checked })}
+                  onChange={(e) => setEditSubscription({
+                    ...editSubscription,
+                    active: e.target.checked,
+                  })}
                 />
               }
-              label="启用订阅"
+              label="启用"
             />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={editSubscription.auto_update}
+                  onChange={(e) => setEditSubscription({
+                    ...editSubscription,
+                    auto_update: e.target.checked,
+                  })}
+                />
+              }
+              label="自动更新"
+            />
+            {editSubscription.auto_update && (
+              <TextField
+                label="更新间隔（分钟）"
+                type="number"
+                value={editSubscription.update_interval / 60}
+                onChange={(e) => setEditSubscription({
+                  ...editSubscription,
+                  update_interval: e.target.value * 60,
+                })}
+                fullWidth
+                size="small"
+                helperText="设置自动更新的时间间隔"
+                disabled={!editSubscription.auto_update}
+              />
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>

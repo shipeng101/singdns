@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -11,7 +11,6 @@ import {
   LinearProgress,
   useTheme,
   Button,
-  Switch,
   Chip,
 } from '@mui/material';
 import {
@@ -20,28 +19,23 @@ import {
   DarkMode as DarkModeIcon,
   Sync as SyncIcon,
 } from '@mui/icons-material';
-import { getSystemInfo, getSystemStatus, startService, stopService } from '../services/api';
+import {
+  getSystemInfo,
+  getSystemStatus,
+  getTrafficStats,
+  getRealtimeTraffic,
+  startService,
+  stopService,
+  getSubscriptions,
+  refreshSubscription,
+} from '../services/api';
 import { getCommonStyles } from '../styles/commonStyles';
 
 const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
   const theme = useTheme();
   const styles = getCommonStyles(theme);
-  const [loading, setLoading] = useState(false);
-  const [systemInfo, setSystemInfo] = useState({
-    hostname: '',
-    platform: '',
-    arch: '',
-    uptime: 0,
-    cpu_usage: 0,
-    memory_total: 0,
-    memory_used: 0,
-    networkUpload: 0,
-    networkDownload: 0,
-    connections: 0,
-  });
-
-  // 定义服务列表
-  const services = [
+  const [manualLoading, setManualLoading] = useState(false);
+  const [services, setServices] = useState([
     {
       id: 'singbox',
       name: 'Singbox',
@@ -54,44 +48,60 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
       description: 'DNS服务',
       active: false,
     },
-  ];
+  ]);
+  const [systemInfo, setSystemInfo] = useState({
+    hostname: '',
+    platform: '',
+    arch: '',
+    uptime: 0,
+    cpu_usage: 0,
+    memory_total: 0,
+    memory_used: 0,
+    networkUpload: 0,
+    networkDownload: 0,
+    connections: 0,
+    singbox_version: '',
+    singbox_uptime: 0,
+    mosdns_version: '',
+    mosdns_uptime: 0,
+  });
 
   // 定义订阅列表
   const [subscriptions, setSubscriptions] = useState([]);
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 5000); // 每5秒更新一次
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchData = async () => {
+  // Define fetchData with useCallback
+  const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
       const [sysInfo, sysStatus] = await Promise.all([
         getSystemInfo(),
         getSystemStatus(),
       ]);
 
-      // 更新系统信息
+      // Update system info
       setSystemInfo({
         hostname: sysInfo.hostname || '',
-        platform: sysInfo.platform || '',
-        arch: sysInfo.arch || '',
+        platform: sysInfo.system?.platform || '',
+        arch: sysInfo.system?.arch || '',
         uptime: sysInfo.uptime || 0,
-        cpu_usage: sysInfo.cpu_usage || 0,
-        memory_total: sysInfo.memory_total || 0,
-        memory_used: sysInfo.memory_used || 0,
-        networkUpload: sysInfo.network_upload || 0,
-        networkDownload: sysInfo.network_download || 0,
-        connections: sysInfo.connections || 0,
+        cpu_usage: sysInfo.system?.cpu?.usage || 0,
+        memory_total: sysInfo.system?.memory?.total || 0,
+        memory_used: sysInfo.system?.memory?.used || 0,
+        networkUpload: sysInfo.system?.network?.tx_rate || 0,
+        networkDownload: sysInfo.system?.network?.rx_rate || 0,
+        connections: sysInfo.system?.network?.connections || 0,
+        singbox_version: sysStatus.services?.singbox_version || '-',
+        singbox_uptime: sysStatus.services?.singbox_uptime || 0,
+        mosdns_version: sysStatus.services?.mosdns_version || '-',
+        mosdns_uptime: sysStatus.services?.mosdns_uptime || 0,
       });
 
-      // 更新服务状态
-      services[0].active = sysStatus.services?.singbox || false;
-      services[1].active = sysStatus.services?.mosdns || false;
+      // Update services status
+      setServices(prevServices => prevServices.map(service => ({
+        ...service,
+        active: sysStatus.services?.find(s => s.name === service.id)?.is_running || false,
+      })));
 
-      // 更新订阅信息
+      // Update subscriptions
       setSubscriptions(sysStatus.subscriptions?.map(sub => ({
         id: sub.id,
         name: sub.name || '未命名订阅',
@@ -102,17 +112,33 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
 
     } catch (error) {
       console.error('Failed to fetch data:', error);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, []);
 
-  const handleServiceToggle = async (serviceId) => {
+  // 添加自动刷新的 useEffect
+  useEffect(() => {
+    // 首次加载数据
+    fetchData();
+
+    // 设置定时器，每5秒刷新一次数据
+    const intervalId = setInterval(fetchData, 5000);
+
+    // 清理函数
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [fetchData]);
+
+  const handleServiceToggle = async (serviceId, action = 'toggle') => {
     try {
-      setLoading(true);
+      setManualLoading(true);
       const service = services.find(s => s.id === serviceId);
       if (service) {
-        if (service.active) {
+        if (action === 'restart') {
+          await stopService(serviceId);
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 等待1秒
+          await startService(serviceId);
+        } else if (action === 'stop' || service.active) {
           await stopService(serviceId);
         } else {
           await startService(serviceId);
@@ -120,9 +146,9 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
       }
       await fetchData();
     } catch (error) {
-      console.error(`Failed to toggle ${serviceId}:`, error);
+      console.error(`Failed to ${action} ${serviceId}:`, error);
     } finally {
-      setLoading(false);
+      setManualLoading(false);
     }
   };
 
@@ -135,10 +161,10 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
   };
 
   const formatUptime = (seconds) => {
-    const days = Math.floor(seconds / (24 * 60 * 60));
-    const hours = Math.floor((seconds % (24 * 60 * 60)) / (60 * 60));
-    const minutes = Math.floor((seconds % (60 * 60)) / 60);
-    return `${days}天 ${hours}小时 ${minutes}分钟`;
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${days}天${hours}小时${minutes}分钟`;
   };
 
   const formatDate = (dateString) => {
@@ -154,27 +180,36 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
     });
   };
 
+  // 手动刷新函数
+  const handleManualRefresh = async () => {
+    setManualLoading(true);
+    await fetchData();
+    setManualLoading(false);
+  };
+
+  // 修改订阅更新函数
   const handleUpdateAllSubscriptions = async () => {
     try {
-      setLoading(true);
-      // TODO: 实现更新所有订阅的 API 调用
+      setManualLoading(true);
+      const subs = await getSubscriptions();
+      await Promise.all(subs.map(sub => refreshSubscription(sub.id)));
       await fetchData();
     } catch (error) {
       console.error('Failed to update all subscriptions:', error);
     } finally {
-      setLoading(false);
+      setManualLoading(false);
     }
   };
 
   const handleUpdateSubscription = async (id) => {
     try {
-      setLoading(true);
-      // TODO: 实现更新单个订阅的 API 调用
+      setManualLoading(true);
+      await refreshSubscription(id);
       await fetchData();
     } catch (error) {
       console.error(`Failed to update subscription ${id}:`, error);
     } finally {
-      setLoading(false);
+      setManualLoading(false);
     }
   };
 
@@ -187,13 +222,21 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
               <Typography variant="h5" sx={{ fontWeight: 500, color: 'inherit' }}>
                 仪表盘
               </Typography>
-              {loading && (
+              {manualLoading && (
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <CircularProgress size={20} thickness={4} sx={{ color: 'rgba(255,255,255,0.8)' }} />
                 </Box>
               )}
             </Stack>
             <Stack direction="row" spacing={1}>
+              <IconButton
+                size="small"
+                onClick={handleManualRefresh}
+                disabled={manualLoading}
+                sx={styles.iconButton}
+              >
+                <SyncIcon fontSize="small" />
+              </IconButton>
               {onDashboardClick && (
                 <IconButton
                   size="small"
@@ -214,13 +257,12 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
           </Stack>
         </CardContent>
       </Card>
+      {manualLoading && <LinearProgress sx={{ mb: 1 }} />}
 
-      {loading && <LinearProgress sx={{ mb: 1 }} />}
-
-      <Grid container spacing={1.5}>
-        {/* 第一行：系统信息、CPU使用率、内存使用率、网络状态 */}
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={styles.card}>
+      <Grid container spacing={2} sx={{ mt: 0.5 }}>
+        {/* 第一行：系信息、CPU使用率、内存使用率、网络状态 */}
+        <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+          <Card sx={{ ...styles.card, width: '100%', height: '100%' }}>
             <CardContent>
               <Stack spacing={1}>
                 <Typography variant="h6" sx={{ fontWeight: 500 }}>系统信息</Typography>
@@ -240,8 +282,8 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={styles.card}>
+        <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+          <Card sx={{ ...styles.card, width: '100%', height: '100%' }}>
             <CardContent>
               <Stack spacing={2}>
                 <Typography variant="h6" sx={{ fontWeight: 500 }}>CPU 使用率</Typography>
@@ -275,8 +317,8 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={styles.card}>
+        <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+          <Card sx={{ ...styles.card, width: '100%', height: '100%' }}>
             <CardContent>
               <Stack spacing={2}>
                 <Typography variant="h6" sx={{ fontWeight: 500 }}>内存使用率</Typography>
@@ -313,8 +355,8 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={styles.card}>
+        <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex' }}>
+          <Card sx={{ ...styles.card, width: '100%', height: '100%' }}>
             <CardContent>
               <Stack spacing={1}>
                 <Typography variant="h6" sx={{ fontWeight: 500 }}>网络状态</Typography>
@@ -335,13 +377,13 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
         </Grid>
 
         {/* 第二行：服务状态卡片 */}
-        <Grid item xs={12} sm={6} md={4}>
-          <Card sx={styles.card}>
+        <Grid item xs={12} sm={6} md={4} sx={{ display: 'flex' }}>
+          <Card sx={{ ...styles.card, width: '100%', height: '100%' }}>
             <CardContent>
               <Stack spacing={2}>
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <Typography variant="h6" sx={{ fontWeight: 500 }}>Singbox 状态</Typography>
-                  <Chip 
+                  <Chip
                     label={services[0].active ? "运行中" : "已停止"}
                     size="small"
                     sx={{
@@ -359,19 +401,23 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
                     <Typography variant="body2" color="text.secondary">版本</Typography>
                     <Typography variant="body2">{systemInfo.singbox_version || '-'}</Typography>
                   </Stack>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography variant="body2" color="text.secondary">运行时间</Typography>
+                    <Typography variant="body2">{formatUptime(systemInfo.singbox_uptime)}</Typography>
+                  </Stack>
                 </Stack>
               </Stack>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={4}>
-          <Card sx={styles.card}>
+        <Grid item xs={12} sm={6} md={4} sx={{ display: 'flex' }}>
+          <Card sx={{ ...styles.card, width: '100%', height: '100%' }}>
             <CardContent>
               <Stack spacing={2}>
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <Typography variant="h6" sx={{ fontWeight: 500 }}>Mosdns 状态</Typography>
-                  <Chip 
+                  <Chip
                     label={services[1].active ? "运行中" : "已停止"}
                     size="small"
                     sx={{
@@ -389,14 +435,18 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
                     <Typography variant="body2" color="text.secondary">版本</Typography>
                     <Typography variant="body2">{systemInfo.mosdns_version || '-'}</Typography>
                   </Stack>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography variant="body2" color="text.secondary">运行时间</Typography>
+                    <Typography variant="body2">{formatUptime(systemInfo.mosdns_uptime)}</Typography>
+                  </Stack>
                 </Stack>
               </Stack>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={12} md={4}>
-          <Card sx={styles.card}>
+        <Grid item xs={12} sm={12} md={4} sx={{ display: 'flex' }}>
+          <Card sx={{ ...styles.card, width: '100%', height: '100%' }}>
             <CardContent>
               <Stack spacing={2}>
                 <Typography variant="h6" sx={{ fontWeight: 500 }}>服务控制</Typography>
@@ -409,15 +459,17 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
                       <Button
                         variant="contained"
                         size="small"
-                        disabled={loading || services[0].active}
-                        onClick={() => handleServiceToggle('singbox')}
+                        disabled={manualLoading || services[0].active}
+                        onClick={() => handleServiceToggle('singbox', 'start')}
                         sx={{
                           flex: 1,
-                          background: 'linear-gradient(45deg, #4caf50 30%, #81c784 90%)',
-                          color: '#fff',
+                          bgcolor: 'success.main',
+                          '&:hover': {
+                            bgcolor: 'success.dark',
+                          },
                           '&:disabled': {
-                            background: 'linear-gradient(45deg, rgba(76, 175, 80, 0.5) 30%, rgba(129, 199, 132, 0.5) 90%)',
-                            color: 'rgba(255, 255, 255, 0.5)',
+                            bgcolor: 'success.light',
+                            opacity: 0.5,
                           },
                         }}
                       >
@@ -426,15 +478,36 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
                       <Button
                         variant="contained"
                         size="small"
-                        disabled={loading || !services[0].active}
-                        onClick={() => handleServiceToggle('singbox')}
+                        disabled={manualLoading || !services[0].active}
+                        onClick={() => handleServiceToggle('singbox', 'restart')}
                         sx={{
                           flex: 1,
-                          background: 'linear-gradient(45deg, #f44336 30%, #e57373 90%)',
-                          color: '#fff',
+                          bgcolor: 'warning.main',
+                          '&:hover': {
+                            bgcolor: 'warning.dark',
+                          },
                           '&:disabled': {
-                            background: 'linear-gradient(45deg, rgba(244, 67, 54, 0.5) 30%, rgba(229, 115, 115, 0.5) 90%)',
-                            color: 'rgba(255, 255, 255, 0.5)',
+                            bgcolor: 'warning.light',
+                            opacity: 0.5,
+                          },
+                        }}
+                      >
+                        重启
+                      </Button>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        disabled={manualLoading || !services[0].active}
+                        onClick={() => handleServiceToggle('singbox', 'stop')}
+                        sx={{
+                          flex: 1,
+                          bgcolor: 'error.main',
+                          '&:hover': {
+                            bgcolor: 'error.dark',
+                          },
+                          '&:disabled': {
+                            bgcolor: 'error.light',
+                            opacity: 0.5,
                           },
                         }}
                       >
@@ -450,15 +523,17 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
                       <Button
                         variant="contained"
                         size="small"
-                        disabled={loading || services[1].active}
-                        onClick={() => handleServiceToggle('mosdns')}
+                        disabled={manualLoading || services[1].active}
+                        onClick={() => handleServiceToggle('mosdns', 'start')}
                         sx={{
                           flex: 1,
-                          background: 'linear-gradient(45deg, #4caf50 30%, #81c784 90%)',
-                          color: '#fff',
+                          bgcolor: 'success.main',
+                          '&:hover': {
+                            bgcolor: 'success.dark',
+                          },
                           '&:disabled': {
-                            background: 'linear-gradient(45deg, rgba(76, 175, 80, 0.5) 30%, rgba(129, 199, 132, 0.5) 90%)',
-                            color: 'rgba(255, 255, 255, 0.5)',
+                            bgcolor: 'success.light',
+                            opacity: 0.5,
                           },
                         }}
                       >
@@ -467,15 +542,36 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
                       <Button
                         variant="contained"
                         size="small"
-                        disabled={loading || !services[1].active}
-                        onClick={() => handleServiceToggle('mosdns')}
+                        disabled={manualLoading || !services[1].active}
+                        onClick={() => handleServiceToggle('mosdns', 'restart')}
                         sx={{
                           flex: 1,
-                          background: 'linear-gradient(45deg, #f44336 30%, #e57373 90%)',
-                          color: '#fff',
+                          bgcolor: 'warning.main',
+                          '&:hover': {
+                            bgcolor: 'warning.dark',
+                          },
                           '&:disabled': {
-                            background: 'linear-gradient(45deg, rgba(244, 67, 54, 0.5) 30%, rgba(229, 115, 115, 0.5) 90%)',
-                            color: 'rgba(255, 255, 255, 0.5)',
+                            bgcolor: 'warning.light',
+                            opacity: 0.5,
+                          },
+                        }}
+                      >
+                        重启
+                      </Button>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        disabled={manualLoading || !services[1].active}
+                        onClick={() => handleServiceToggle('mosdns', 'stop')}
+                        sx={{
+                          flex: 1,
+                          bgcolor: 'error.main',
+                          '&:hover': {
+                            bgcolor: 'error.dark',
+                          },
+                          '&:disabled': {
+                            bgcolor: 'error.light',
+                            opacity: 0.5,
                           },
                         }}
                       >
@@ -491,7 +587,7 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
 
         {/* 第三行：订阅信息 */}
         <Grid item xs={12}>
-          <Card sx={styles.card}>
+          <Card sx={{ ...styles.card, width: '100%' }}>
             <CardContent>
               <Stack spacing={2}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -501,7 +597,7 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
                     size="small"
                     startIcon={<SyncIcon />}
                     onClick={handleUpdateAllSubscriptions}
-                    disabled={loading}
+                    disabled={manualLoading}
                     sx={styles.actionButton}
                   >
                     更新全部
@@ -522,7 +618,7 @@ const Dashboard = ({ mode, setMode, onDashboardClick = () => {} }) => {
                                 size="small"
                                 startIcon={<SyncIcon />}
                                 onClick={() => handleUpdateSubscription(subscription.id)}
-                                disabled={loading}
+                                disabled={manualLoading}
                                 sx={styles.outlinedButton}
                               >
                                 更新

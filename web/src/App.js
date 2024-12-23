@@ -18,8 +18,10 @@ import {
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
 import getTheme from './theme';
 import ErrorBoundary from './components/ErrorBoundary';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Import your components
+import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Nodes from './pages/Nodes';
 import Rules from './pages/Rules';
@@ -59,20 +61,24 @@ function App() {
 
   return (
     <ThemeProvider theme={theme}>
+      <CssBaseline />
       <ErrorBoundary>
         <Router>
           <Routes>
+            <Route path="/login" element={<Login />} />
             <Route
               path="/*"
               element={
-                <AppContent 
-                  mode={mode} 
-                  setMode={setMode}
-                  mobileOpen={mobileOpen}
-                  setMobileOpen={setMobileOpen}
-                  dashboardAnchorEl={dashboardAnchorEl}
-                  setDashboardAnchorEl={setDashboardAnchorEl}
-                />
+                <ProtectedRoute>
+                  <AppContent 
+                    mode={mode} 
+                    setMode={setMode}
+                    mobileOpen={mobileOpen}
+                    setMobileOpen={setMobileOpen}
+                    dashboardAnchorEl={dashboardAnchorEl}
+                    setDashboardAnchorEl={setDashboardAnchorEl}
+                  />
+                </ProtectedRoute>
               }
             />
           </Routes>

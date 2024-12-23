@@ -3,6 +3,7 @@ package protocols
 import (
 	"fmt"
 	"net/url"
+	"singdns/api/models"
 )
 
 // VLESSProtocol implements the VLESS protocol
@@ -14,8 +15,8 @@ func init() {
 
 // ParseURL parses a VLESS URL into a Node
 // Format: vless://uuid@host:port?type=tcp&security=tls&flow=xtls-rprx-vision&sni=example.com#name
-func (p *VLESSProtocol) ParseURL(u *url.URL) (*Node, error) {
-	node := &Node{
+func (p *VLESSProtocol) ParseURL(u *url.URL) (*models.Node, error) {
+	node := &models.Node{
 		Type: "vless",
 		Name: u.Fragment,
 	}
@@ -67,7 +68,7 @@ func (p *VLESSProtocol) ParseURL(u *url.URL) (*Node, error) {
 }
 
 // ToURL converts a Node to a VLESS URL
-func (p *VLESSProtocol) ToURL(node *Node) (string, error) {
+func (p *VLESSProtocol) ToURL(node *models.Node) (string, error) {
 	if err := p.Validate(node); err != nil {
 		return "", err
 	}
@@ -122,7 +123,7 @@ func (p *VLESSProtocol) ToURL(node *Node) (string, error) {
 }
 
 // Validate validates a VLESS node configuration
-func (p *VLESSProtocol) Validate(node *Node) error {
+func (p *VLESSProtocol) Validate(node *models.Node) error {
 	if node.Type != "vless" {
 		return fmt.Errorf("invalid node type: %s", node.Type)
 	}

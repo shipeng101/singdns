@@ -1,0 +1,108 @@
+{
+  "dns": {
+    "rules": [
+      {
+        "disable_cache": true,
+        "domain": [
+          "cn",
+          "localhost"
+        ],
+        "server": "local"
+      }
+    ],
+    "servers": [
+      {
+        "address": "223.5.5.5",
+        "detour": "direct",
+        "tag": "local"
+      },
+      {
+        "address": "8.8.8.8",
+        "detour": "proxy",
+        "tag": "remote"
+      }
+    ],
+    "strategy": "ipv4_only"
+  },
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "cache.db"
+    },
+    "clash_api": {
+      "external_controller": "127.0.0.1:9090",
+      "external_ui": "ui",
+      "secret": ""
+    }
+  },
+  "inbounds": [
+    {
+      "domain_strategy": "ipv4_only",
+      "listen": "::",
+      "listen_port": 1080,
+      "sniff": true,
+      "sniff_override_destination": true,
+      "tag": "mixed-in",
+      "type": "mixed"
+    }
+  ],
+  "log": {
+    "level": "info",
+    "timestamp": true
+  },
+  "outbounds": [
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "block",
+      "type": "block"
+    },
+    {
+      "tag": "dns-out",
+      "type": "dns"
+    },
+    {
+      "tag": "",
+      "type": "ss"
+    },
+    {
+      "alter_id": 0,
+      "network": "tcp",
+      "server": "1.1.1.1",
+      "server_port": 6666,
+      "tag": "1aa6219d-4ad4-4682-b80b-05fc18f5abc8",
+      "type": "vmess",
+      "uuid": "38104d12-f828-f10e-1808-5684ff1ca9eb"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "final": "proxy",
+    "rules": [
+      {
+        "outbound": "dns-out",
+        "protocol": "dns"
+      },
+      {
+        "geoip": [
+          "private"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "geoip": [
+          "cn"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "geosite": [
+          "cn"
+        ],
+        "outbound": "direct"
+      }
+    ]
+  }
+}

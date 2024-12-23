@@ -91,7 +91,7 @@ singdns/
 - GET `/api/system/info` - 获取系统详细信息（CPU、内存、运行时间等）
 
 #### 节点相关
-- GET `/api/nodes/{id}/status` - 获取��点状态
+- GET `/api/nodes/{id}/status` - 获取节点状态
 - POST `/api/nodes/import` - 导入节点
 - POST `/api/nodes/{id}/test` - 测试节点
 
@@ -213,4 +213,4 @@ log:
 
 ## 许可证
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。 
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。

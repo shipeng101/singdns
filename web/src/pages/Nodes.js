@@ -19,4 +19,14 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { getNodes, updateNode, deleteNode } from '../services/api';
 import PageHeader from '../components/PageHeader';
 
-// ... rest of the code ... 
+const Nodes = ({ mode, setMode, onDashboardClick }) => {
+  // ... component code ...
+  return (
+    <Box>
+      <PageHeader title="节点管理" />
+      {/* ... rest of the JSX ... */}
+    </Box>
+  );
+};
+
+export default Nodes; 

@@ -13,4 +13,14 @@ import {
 import { getSettings, updateSettings } from '../services/api';
 import PageHeader from '../components/PageHeader';
 
-// ... rest of the code ... 
+const Settings = ({ mode, setMode, onDashboardClick }) => {
+  // ... component code ...
+  return (
+    <Box>
+      <PageHeader title="系统设置" />
+      {/* ... rest of the JSX ... */}
+    </Box>
+  );
+};
+
+export default Settings; 

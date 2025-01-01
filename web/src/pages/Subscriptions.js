@@ -17,4 +17,14 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { getSubscriptions, updateSubscription, deleteSubscription } from '../services/api';
 import PageHeader from '../components/PageHeader';
 
-// ... rest of the code ... 
+const Subscriptions = ({ mode, setMode, onDashboardClick }) => {
+  // ... component code ...
+  return (
+    <Box>
+      <PageHeader title="订阅管理" />
+      {/* ... rest of the JSX ... */}
+    </Box>
+  );
+};
+
+export default Subscriptions; 

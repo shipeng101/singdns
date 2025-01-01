@@ -1,0 +1,317 @@
+2025-01-01T09:04:39.624+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T09:04:39.625+0800	INFO	loading plugin	{"tag": "forward_remote", "type": "forward"}
+2025-01-01T09:04:39.625+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T09:04:39.625+0800	INFO	starting shutdown sequences
+2025-01-01T09:04:39.625+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T09:04:39.625+0800	INFO	closing plugin	{"tag": "forward_remote"}
+2025-01-01T09:04:39.625+0800	INFO	all plugins were closed
+2025-01-01T09:29:57.829+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T09:29:57.829+0800	INFO	loading plugin	{"tag": "forward_remote", "type": "forward"}
+2025-01-01T09:29:57.829+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T09:29:57.829+0800	INFO	loading plugin	{"tag": "udp_server", "type": "udp_server"}
+2025-01-01T09:29:57.831+0800	INFO	udp_server	udp server started	{"addr": "[::]:5354"}
+2025-01-01T09:29:57.831+0800	INFO	loading plugin	{"tag": "tcp_server", "type": "tcp_server"}
+2025-01-01T09:29:57.831+0800	INFO	tcp_server	tcp server started	{"addr": "[::]:5354", "tls": false}
+2025-01-01T09:29:57.831+0800	INFO	all plugins are loaded
+2025-01-01T09:30:07.461+0800	WARN	signal received	{"signal": "interrupt"}
+2025-01-01T09:30:07.461+0800	INFO	starting shutdown sequences
+2025-01-01T09:30:07.461+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T09:30:07.461+0800	INFO	closing plugin	{"tag": "forward_remote"}
+2025-01-01T09:30:07.461+0800	INFO	closing plugin	{"tag": "main_sequence"}
+2025-01-01T09:30:07.461+0800	INFO	closing plugin	{"tag": "udp_server"}
+2025-01-01T09:30:07.461+0800	WARN	udp_server	read err	{"error": "read udp [::]:5354: use of closed network connection"}
+2025-01-01T09:30:07.461+0800	INFO	closing plugin	{"tag": "tcp_server"}
+2025-01-01T09:30:07.462+0800	INFO	all plugins were closed
+2025-01-01T09:32:13.228+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T09:32:13.228+0800	INFO	loading plugin	{"tag": "forward_remote", "type": "forward"}
+2025-01-01T09:32:13.228+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T09:32:13.228+0800	INFO	loading plugin	{"tag": "udp_server", "type": "udp_server"}
+2025-01-01T09:32:13.228+0800	INFO	udp_server	udp server started	{"addr": "[::]:5354"}
+2025-01-01T09:32:13.228+0800	INFO	loading plugin	{"tag": "tcp_server", "type": "tcp_server"}
+2025-01-01T09:32:13.228+0800	INFO	tcp_server	tcp server started	{"addr": "[::]:5354", "tls": false}
+2025-01-01T09:32:13.228+0800	INFO	all plugins are loaded
+2025-01-01T09:32:45.050+0800	WARN	signal received	{"signal": "interrupt"}
+2025-01-01T09:32:45.050+0800	INFO	starting shutdown sequences
+2025-01-01T09:32:45.050+0800	INFO	closing plugin	{"tag": "forward_remote"}
+2025-01-01T09:32:45.050+0800	INFO	closing plugin	{"tag": "main_sequence"}
+2025-01-01T09:32:45.050+0800	INFO	closing plugin	{"tag": "udp_server"}
+2025-01-01T09:32:45.051+0800	WARN	udp_server	read err	{"error": "read udp [::]:5354: use of closed network connection"}
+2025-01-01T09:32:45.051+0800	INFO	closing plugin	{"tag": "tcp_server"}
+2025-01-01T09:32:45.051+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T09:32:45.051+0800	INFO	all plugins were closed
+2025-01-01T09:32:53.633+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T09:32:53.633+0800	INFO	loading plugin	{"tag": "forward_remote", "type": "forward"}
+2025-01-01T09:32:53.633+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T09:32:53.633+0800	INFO	loading plugin	{"tag": "udp_server", "type": "udp_server"}
+2025-01-01T09:32:53.634+0800	INFO	udp_server	udp server started	{"addr": "[::]:5354"}
+2025-01-01T09:32:53.634+0800	INFO	loading plugin	{"tag": "tcp_server", "type": "tcp_server"}
+2025-01-01T09:32:53.634+0800	INFO	tcp_server	tcp server started	{"addr": "[::]:5354", "tls": false}
+2025-01-01T09:32:53.634+0800	INFO	all plugins are loaded
+2025-01-01T09:34:07.378+0800	WARN	signal received	{"signal": "interrupt"}
+2025-01-01T09:34:07.378+0800	INFO	starting shutdown sequences
+2025-01-01T09:34:07.378+0800	INFO	closing plugin	{"tag": "udp_server"}
+2025-01-01T09:34:07.378+0800	WARN	udp_server	read err	{"error": "read udp [::]:5354: use of closed network connection"}
+2025-01-01T09:34:07.378+0800	INFO	closing plugin	{"tag": "tcp_server"}
+2025-01-01T09:34:07.378+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T09:34:07.378+0800	INFO	closing plugin	{"tag": "forward_remote"}
+2025-01-01T09:34:07.378+0800	INFO	closing plugin	{"tag": "main_sequence"}
+2025-01-01T09:34:07.378+0800	INFO	all plugins were closed
+2025-01-01T09:35:15.543+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T09:35:15.543+0800	INFO	loading plugin	{"tag": "forward_local", "type": "forward"}
+2025-01-01T09:35:15.544+0800	INFO	loading plugin	{"tag": "forward_remote", "type": "forward"}
+2025-01-01T09:35:15.544+0800	INFO	loading plugin	{"tag": "matcher_local", "type": "domain_set"}
+2025-01-01T09:35:15.544+0800	INFO	starting shutdown sequences
+2025-01-01T09:35:15.544+0800	INFO	closing plugin	{"tag": "forward_remote"}
+2025-01-01T09:35:15.544+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T09:35:15.544+0800	INFO	closing plugin	{"tag": "forward_local"}
+2025-01-01T09:35:15.544+0800	INFO	all plugins were closed
+2025-01-01T09:37:24.659+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T09:37:24.661+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T09:37:24.661+0800	INFO	starting shutdown sequences
+2025-01-01T09:37:24.662+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T09:37:24.662+0800	INFO	all plugins were closed
+2025-01-01T09:38:49.158+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T09:38:49.160+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T09:38:49.160+0800	INFO	loading plugin	{"tag": "forward_local", "type": "forward"}
+2025-01-01T09:38:49.161+0800	INFO	loading plugin	{"tag": "forward_remote", "type": "forward"}
+2025-01-01T09:38:49.161+0800	INFO	loading plugin	{"tag": "matcher_local", "type": "domain_set"}
+2025-01-01T09:38:49.215+0800	INFO	loading plugin	{"tag": "matcher_local_ip", "type": "ip_set"}
+2025-01-01T09:38:49.219+0800	INFO	loading plugin	{"tag": "matcher_ad", "type": "domain_set"}
+2025-01-01T09:38:49.223+0800	INFO	starting shutdown sequences
+2025-01-01T09:38:49.226+0800	INFO	closing plugin	{"tag": "forward_remote"}
+2025-01-01T09:38:49.227+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T09:38:49.227+0800	INFO	closing plugin	{"tag": "forward_local"}
+2025-01-01T09:38:49.227+0800	INFO	all plugins were closed
+2025-01-01T09:39:00.016+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T09:39:00.017+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T09:39:00.017+0800	INFO	loading plugin	{"tag": "forward_local", "type": "forward"}
+2025-01-01T09:39:00.017+0800	INFO	loading plugin	{"tag": "forward_remote", "type": "forward"}
+2025-01-01T09:39:00.017+0800	INFO	loading plugin	{"tag": "matcher_local", "type": "domain_set"}
+2025-01-01T09:39:00.074+0800	INFO	loading plugin	{"tag": "matcher_local_ip", "type": "ip_set"}
+2025-01-01T09:39:00.076+0800	INFO	loading plugin	{"tag": "matcher_ad", "type": "domain_set"}
+2025-01-01T09:39:00.078+0800	INFO	starting shutdown sequences
+2025-01-01T09:39:00.078+0800	INFO	closing plugin	{"tag": "forward_local"}
+2025-01-01T09:39:00.078+0800	INFO	closing plugin	{"tag": "forward_remote"}
+2025-01-01T09:39:00.078+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T09:39:00.078+0800	INFO	all plugins were closed
+2025-01-01T09:42:45.684+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T09:42:45.686+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T09:42:45.686+0800	INFO	loading plugin	{"tag": "forward_local", "type": "forward"}
+2025-01-01T09:42:45.686+0800	INFO	loading plugin	{"tag": "forward_remote", "type": "forward"}
+2025-01-01T09:42:45.686+0800	INFO	loading plugin	{"tag": "matcher_local", "type": "domain_set"}
+2025-01-01T09:42:45.756+0800	INFO	loading plugin	{"tag": "matcher_local_ip", "type": "ip_set"}
+2025-01-01T09:42:45.759+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T09:42:45.759+0800	INFO	starting shutdown sequences
+2025-01-01T09:42:45.759+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T09:42:45.759+0800	INFO	closing plugin	{"tag": "forward_local"}
+2025-01-01T09:42:45.759+0800	INFO	closing plugin	{"tag": "forward_remote"}
+2025-01-01T09:42:45.759+0800	INFO	all plugins were closed
+2025-01-01T09:44:09.403+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T09:44:09.405+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T09:44:09.405+0800	INFO	loading plugin	{"tag": "matcher_local", "type": "domain_set"}
+2025-01-01T09:44:09.477+0800	INFO	loading plugin	{"tag": "matcher_local_ip", "type": "ip_set"}
+2025-01-01T09:44:09.482+0800	INFO	loading plugin	{"tag": "matcher_ad", "type": "domain_set"}
+2025-01-01T09:44:09.540+0800	INFO	loading plugin	{"tag": "forward_local", "type": "forward"}
+2025-01-01T09:44:09.541+0800	INFO	loading plugin	{"tag": "forward_remote", "type": "forward"}
+2025-01-01T09:44:09.541+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T09:44:09.542+0800	INFO	starting shutdown sequences
+2025-01-01T09:44:09.542+0800	INFO	closing plugin	{"tag": "forward_local"}
+2025-01-01T09:44:09.542+0800	INFO	closing plugin	{"tag": "forward_remote"}
+2025-01-01T09:44:09.542+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T09:44:09.542+0800	INFO	all plugins were closed
+2025-01-01T09:44:25.926+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T09:44:25.926+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T09:44:25.926+0800	INFO	loading plugin	{"tag": "matcher_local", "type": "domain_set"}
+2025-01-01T09:44:25.984+0800	INFO	loading plugin	{"tag": "matcher_local_ip", "type": "ip_set"}
+2025-01-01T09:44:25.986+0800	INFO	loading plugin	{"tag": "matcher_ad", "type": "domain_set"}
+2025-01-01T09:44:26.084+0800	INFO	loading plugin	{"tag": "forward_local", "type": "forward"}
+2025-01-01T09:44:26.084+0800	INFO	loading plugin	{"tag": "forward_remote", "type": "forward"}
+2025-01-01T09:44:26.085+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T09:44:26.085+0800	INFO	starting shutdown sequences
+2025-01-01T09:44:26.085+0800	INFO	closing plugin	{"tag": "forward_remote"}
+2025-01-01T09:44:26.085+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T09:44:26.085+0800	INFO	closing plugin	{"tag": "forward_local"}
+2025-01-01T09:44:26.085+0800	INFO	all plugins were closed
+2025-01-01T10:29:20.504+0800	INFO	starting shutdown sequences
+2025-01-01T10:29:20.504+0800	INFO	all plugins were closed
+2025-01-01T10:29:50.908+0800	INFO	starting shutdown sequences
+2025-01-01T10:29:50.908+0800	INFO	all plugins were closed
+2025-01-01T10:30:25.155+0800	INFO	starting shutdown sequences
+2025-01-01T10:30:25.155+0800	INFO	all plugins were closed
+2025-01-01T10:33:28.196+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T10:33:28.201+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T10:33:28.201+0800	INFO	loading plugin	{"tag": "matcher_local", "type": "domain_set"}
+2025-01-01T10:33:28.257+0800	INFO	loading plugin	{"tag": "matcher_local_ip", "type": "ip_set"}
+2025-01-01T10:33:28.261+0800	INFO	loading plugin	{"tag": "dns_cn", "type": "forward"}
+2025-01-01T10:33:28.263+0800	INFO	loading plugin	{"tag": "dns_remote", "type": "forward"}
+2025-01-01T10:33:28.263+0800	INFO	loading plugin	{"tag": "exec_cn", "type": "sequence"}
+2025-01-01T10:33:28.264+0800	INFO	starting shutdown sequences
+2025-01-01T10:33:28.264+0800	INFO	closing plugin	{"tag": "dns_cn"}
+2025-01-01T10:33:28.264+0800	INFO	closing plugin	{"tag": "dns_remote"}
+2025-01-01T10:33:28.264+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T10:33:28.265+0800	INFO	all plugins were closed
+2025-01-01T10:34:29.174+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T10:34:29.176+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T10:34:29.176+0800	INFO	loading plugin	{"tag": "matcher_local", "type": "domain_set"}
+2025-01-01T10:34:29.242+0800	INFO	loading plugin	{"tag": "matcher_local_ip", "type": "ip_set"}
+2025-01-01T10:34:29.245+0800	INFO	loading plugin	{"tag": "dns_cn", "type": "forward"}
+2025-01-01T10:34:29.246+0800	INFO	loading plugin	{"tag": "dns_remote", "type": "forward"}
+2025-01-01T10:34:29.246+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T10:34:29.247+0800	INFO	starting shutdown sequences
+2025-01-01T10:34:29.247+0800	INFO	closing plugin	{"tag": "dns_cn"}
+2025-01-01T10:34:29.247+0800	INFO	closing plugin	{"tag": "dns_remote"}
+2025-01-01T10:34:29.247+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T10:34:29.247+0800	INFO	all plugins were closed
+2025-01-01T10:36:00.175+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T10:36:00.177+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T10:36:00.178+0800	INFO	loading plugin	{"tag": "dns_cn", "type": "forward"}
+2025-01-01T10:36:00.179+0800	INFO	loading plugin	{"tag": "dns_remote", "type": "forward"}
+2025-01-01T10:36:00.179+0800	INFO	loading plugin	{"tag": "matcher_local", "type": "domain_set"}
+2025-01-01T10:36:00.255+0800	INFO	loading plugin	{"tag": "matcher_local_ip", "type": "ip_set"}
+2025-01-01T10:36:00.258+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T10:36:00.259+0800	INFO	starting shutdown sequences
+2025-01-01T10:36:00.260+0800	INFO	closing plugin	{"tag": "dns_remote"}
+2025-01-01T10:36:00.260+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T10:36:00.260+0800	INFO	closing plugin	{"tag": "dns_cn"}
+2025-01-01T10:36:00.260+0800	INFO	all plugins were closed
+2025-01-01T10:36:22.496+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T10:36:22.498+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T10:36:22.499+0800	INFO	loading plugin	{"tag": "dns_cn", "type": "forward"}
+2025-01-01T10:36:22.499+0800	INFO	loading plugin	{"tag": "dns_remote", "type": "forward"}
+2025-01-01T10:36:22.499+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T10:36:22.499+0800	INFO	loading plugin	{"tag": "udp_server", "type": "udp_server"}
+2025-01-01T10:36:22.501+0800	INFO	udp_server	udp server started	{"addr": "[::]:5354"}
+2025-01-01T10:36:22.501+0800	INFO	loading plugin	{"tag": "tcp_server", "type": "tcp_server"}
+2025-01-01T10:36:22.501+0800	INFO	tcp_server	tcp server started	{"addr": "[::]:5354", "tls": false}
+2025-01-01T10:36:22.501+0800	INFO	all plugins are loaded
+2025-01-01T10:36:29.483+0800	WARN	signal received	{"signal": "interrupt"}
+2025-01-01T10:36:29.484+0800	INFO	starting shutdown sequences
+2025-01-01T10:36:29.484+0800	INFO	closing plugin	{"tag": "dns_cn"}
+2025-01-01T10:36:29.484+0800	INFO	closing plugin	{"tag": "dns_remote"}
+2025-01-01T10:36:29.484+0800	INFO	closing plugin	{"tag": "main_sequence"}
+2025-01-01T10:36:29.484+0800	INFO	closing plugin	{"tag": "udp_server"}
+2025-01-01T10:36:29.484+0800	WARN	udp_server	read err	{"error": "read udp [::]:5354: use of closed network connection"}
+2025-01-01T10:36:29.484+0800	INFO	closing plugin	{"tag": "tcp_server"}
+2025-01-01T10:36:29.484+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T10:36:29.484+0800	INFO	all plugins were closed
+2025-01-01T10:42:53.258+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T10:42:53.260+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T10:42:53.261+0800	INFO	loading plugin	{"tag": "matcher_local", "type": "domain_set"}
+2025-01-01T10:42:53.328+0800	INFO	loading plugin	{"tag": "matcher_local_ip", "type": "ip_set"}
+2025-01-01T10:42:53.331+0800	INFO	loading plugin	{"tag": "dns_cn", "type": "forward"}
+2025-01-01T10:42:53.332+0800	INFO	loading plugin	{"tag": "dns_remote", "type": "forward"}
+2025-01-01T10:42:53.332+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T10:42:53.332+0800	INFO	starting shutdown sequences
+2025-01-01T10:42:53.332+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T10:42:53.332+0800	INFO	closing plugin	{"tag": "dns_cn"}
+2025-01-01T10:42:53.332+0800	INFO	closing plugin	{"tag": "dns_remote"}
+2025-01-01T10:42:53.332+0800	INFO	all plugins were closed
+2025-01-01T10:43:16.869+0800	INFO	loading plugin	{"tag": "matcher_local", "type": "domain_set"}
+2025-01-01T10:43:16.951+0800	INFO	loading plugin	{"tag": "matcher_local_ip", "type": "ip_set"}
+2025-01-01T10:43:16.953+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T10:43:16.953+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T10:43:16.954+0800	INFO	loading plugin	{"tag": "dns_cn", "type": "forward"}
+2025-01-01T10:43:16.954+0800	INFO	loading plugin	{"tag": "dns_remote", "type": "forward"}
+2025-01-01T10:43:16.954+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T10:43:16.954+0800	INFO	starting shutdown sequences
+2025-01-01T10:43:16.954+0800	INFO	closing plugin	{"tag": "dns_cn"}
+2025-01-01T10:43:16.954+0800	INFO	closing plugin	{"tag": "dns_remote"}
+2025-01-01T10:43:16.954+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T10:43:16.954+0800	INFO	all plugins were closed
+2025-01-01T10:43:46.484+0800	INFO	loading plugin	{"tag": "matcher_local", "type": "domain_set"}
+2025-01-01T10:43:46.534+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T10:43:46.534+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T10:43:46.535+0800	INFO	loading plugin	{"tag": "dns_cn", "type": "forward"}
+2025-01-01T10:43:46.535+0800	INFO	loading plugin	{"tag": "dns_remote", "type": "forward"}
+2025-01-01T10:43:46.535+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T10:43:46.535+0800	INFO	starting shutdown sequences
+2025-01-01T10:43:46.535+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T10:43:46.535+0800	INFO	closing plugin	{"tag": "dns_cn"}
+2025-01-01T10:43:46.535+0800	INFO	closing plugin	{"tag": "dns_remote"}
+2025-01-01T10:43:46.535+0800	INFO	all plugins were closed
+2025-01-01T10:45:14.732+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T10:45:14.733+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T10:45:14.733+0800	INFO	loading plugin	{"tag": "dns_cn", "type": "forward"}
+2025-01-01T10:45:14.733+0800	INFO	loading plugin	{"tag": "dns_remote", "type": "forward"}
+2025-01-01T10:45:14.733+0800	INFO	starting shutdown sequences
+2025-01-01T10:45:14.733+0800	INFO	closing plugin	{"tag": "dns_remote"}
+2025-01-01T10:45:14.733+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T10:45:14.733+0800	INFO	closing plugin	{"tag": "dns_cn"}
+2025-01-01T10:45:14.733+0800	INFO	all plugins were closed
+2025-01-01T10:45:46.221+0800	INFO	loading plugin	{"tag": "local_domain", "type": "domain_set"}
+2025-01-01T10:45:46.278+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T10:45:46.278+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T10:45:46.278+0800	INFO	loading plugin	{"tag": "dns_cn", "type": "forward"}
+2025-01-01T10:45:46.278+0800	INFO	loading plugin	{"tag": "dns_remote", "type": "forward"}
+2025-01-01T10:45:46.278+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T10:45:46.278+0800	INFO	starting shutdown sequences
+2025-01-01T10:45:46.278+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T10:45:46.278+0800	INFO	closing plugin	{"tag": "dns_cn"}
+2025-01-01T10:45:46.278+0800	INFO	closing plugin	{"tag": "dns_remote"}
+2025-01-01T10:45:46.278+0800	INFO	all plugins were closed
+2025-01-01T10:46:12.145+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T10:46:12.145+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T10:46:12.145+0800	INFO	loading plugin	{"tag": "dns_cn", "type": "forward"}
+2025-01-01T10:46:12.145+0800	INFO	loading plugin	{"tag": "dns_remote", "type": "forward"}
+2025-01-01T10:46:12.145+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T10:46:12.145+0800	INFO	starting shutdown sequences
+2025-01-01T10:46:12.145+0800	INFO	closing plugin	{"tag": "dns_cn"}
+2025-01-01T10:46:12.145+0800	INFO	closing plugin	{"tag": "dns_remote"}
+2025-01-01T10:46:12.145+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T10:46:12.145+0800	INFO	all plugins were closed
+2025-01-01T10:46:34.471+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T10:46:34.471+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T10:46:34.472+0800	INFO	loading plugin	{"tag": "dns_cn", "type": "forward"}
+2025-01-01T10:46:34.472+0800	INFO	loading plugin	{"tag": "dns_remote", "type": "forward"}
+2025-01-01T10:46:34.472+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T10:46:34.472+0800	INFO	starting shutdown sequences
+2025-01-01T10:46:34.472+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T10:46:34.472+0800	INFO	closing plugin	{"tag": "dns_cn"}
+2025-01-01T10:46:34.472+0800	INFO	closing plugin	{"tag": "dns_remote"}
+2025-01-01T10:46:34.472+0800	INFO	all plugins were closed
+2025-01-01T10:46:57.968+0800	INFO	starting shutdown sequences
+2025-01-01T10:46:57.968+0800	INFO	all plugins were closed
+2025-01-01T10:47:22.023+0800	INFO	starting shutdown sequences
+2025-01-01T10:47:22.023+0800	INFO	all plugins were closed
+2025-01-01T10:48:01.003+0800	INFO	loading plugin	{"tag": "local_domain", "type": "domain_set"}
+2025-01-01T10:48:01.056+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T10:48:01.057+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T10:48:01.057+0800	INFO	loading plugin	{"tag": "dns_cn", "type": "forward"}
+2025-01-01T10:48:01.057+0800	INFO	loading plugin	{"tag": "dns_remote", "type": "forward"}
+2025-01-01T10:48:01.057+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T10:48:01.057+0800	INFO	starting shutdown sequences
+2025-01-01T10:48:01.057+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T10:48:01.057+0800	INFO	closing plugin	{"tag": "dns_cn"}
+2025-01-01T10:48:01.057+0800	INFO	closing plugin	{"tag": "dns_remote"}
+2025-01-01T10:48:01.057+0800	INFO	all plugins were closed
+2025-01-01T10:48:23.825+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T10:48:23.825+0800	INFO	loading plugin	{"tag": "hosts", "type": "hosts"}
+2025-01-01T10:48:23.825+0800	INFO	loading plugin	{"tag": "dns_cn", "type": "forward"}
+2025-01-01T10:48:23.826+0800	INFO	loading plugin	{"tag": "dns_remote", "type": "forward"}
+2025-01-01T10:48:23.826+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T10:48:23.826+0800	INFO	starting shutdown sequences
+2025-01-01T10:48:23.826+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T10:48:23.826+0800	INFO	closing plugin	{"tag": "dns_cn"}
+2025-01-01T10:48:23.826+0800	INFO	closing plugin	{"tag": "dns_remote"}
+2025-01-01T10:48:23.826+0800	INFO	all plugins were closed
+2025-01-01T10:48:49.319+0800	INFO	starting shutdown sequences
+2025-01-01T10:48:49.319+0800	INFO	all plugins were closed
+2025-01-01T10:50:09.476+0800	INFO	loading plugin	{"tag": "cache", "type": "cache"}
+2025-01-01T10:50:09.476+0800	INFO	loading plugin	{"tag": "dns_cn", "type": "forward"}
+2025-01-01T10:50:09.476+0800	INFO	loading plugin	{"tag": "dns_remote", "type": "forward"}
+2025-01-01T10:50:09.476+0800	INFO	loading plugin	{"tag": "main_sequence", "type": "sequence"}
+2025-01-01T10:50:09.476+0800	INFO	loading plugin	{"tag": "udp_server", "type": "udp_server"}
+2025-01-01T10:50:09.478+0800	INFO	udp_server	udp server started	{"addr": "[::]:5354"}
+2025-01-01T10:50:09.478+0800	INFO	loading plugin	{"tag": "tcp_server", "type": "tcp_server"}
+2025-01-01T10:50:09.478+0800	INFO	tcp_server	tcp server started	{"addr": "[::]:5354", "tls": false}
+2025-01-01T10:50:09.478+0800	INFO	all plugins are loaded
+2025-01-01T10:51:20.443+0800	WARN	signal received	{"signal": "interrupt"}
+2025-01-01T10:51:20.444+0800	INFO	starting shutdown sequences
+2025-01-01T10:51:20.444+0800	INFO	closing plugin	{"tag": "cache"}
+2025-01-01T10:51:20.444+0800	INFO	closing plugin	{"tag": "dns_cn"}
+2025-01-01T10:51:20.444+0800	INFO	closing plugin	{"tag": "dns_remote"}
+2025-01-01T10:51:20.444+0800	INFO	closing plugin	{"tag": "main_sequence"}
+2025-01-01T10:51:20.444+0800	INFO	closing plugin	{"tag": "udp_server"}
+2025-01-01T10:51:20.444+0800	WARN	udp_server	read err	{"error": "read udp [::]:5354: use of closed network connection"}
+2025-01-01T10:51:20.444+0800	INFO	closing plugin	{"tag": "tcp_server"}
+2025-01-01T10:51:20.444+0800	INFO	all plugins were closed

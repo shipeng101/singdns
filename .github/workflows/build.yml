@@ -1,0 +1,65 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Build Backend
+      run: |
+        mkdir -p bin
+        go build -o bin/singdns cmd/singdns/main.go
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Build Frontend
+      run: |
+        cd web
+        npm install
+        npm run build
+        cd ..
+
+    - name: Create Release Package
+      run: |
+        mkdir -p release/bin
+        mkdir -p release/configs/sing-box/rules
+        mkdir -p release/configs/mosdns
+        cp bin/singdns release/bin/
+        cp start.sh release/
+        chmod +x release/start.sh
+        cd release
+        tar czf ../singdns-linux-amd64.tar.gz *
+        cd ..
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: singdns-linux-amd64
+        path: singdns-linux-amd64.tar.gz
+
+    - name: Create Release
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: singdns-linux-amd64.tar.gz
+        tag_name: v${{ github.run_number }}
+        name: Release v${{ github.run_number }}
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

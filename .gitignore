@@ -1,0 +1,30 @@
+# Dependencies
+/web/node_modules
+/web/.pnp
+/web/.pnp.js
+
+# Testing
+/web/coverage
+
+# Production
+/web/build
+
+# Misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Binary files
+/bin/
+/run/
+/logs/
+
+# Config files
+/configs/sing-box/config.json
+/configs/mosdns/config.yaml 

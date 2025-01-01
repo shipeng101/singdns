@@ -13,4 +13,14 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { getSystemStatus } from '../services/api';
 import PageHeader from '../components/PageHeader';
 
-// ... rest of the code ... 
+const Dashboard = ({ mode, setMode, onDashboardClick }) => {
+  // ... component code ...
+  return (
+    <Box>
+      <PageHeader title="仪表盘" />
+      {/* ... rest of the JSX ... */}
+    </Box>
+  );
+};
+
+export default Dashboard; 

@@ -1,0 +1,432 @@
+{
+  "log": {
+    "level": "info",
+    "timestamp": true,
+    "output": "",
+    "disabled": false
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "dns-direct",
+        "address": "223.5.5.5",
+        "detour": "direct-out"
+      },
+      {
+        "tag": "alidns",
+        "address": "https://dns.alidns.com/dns-query",
+        "address_resolver": "dns-direct",
+        "address_strategy": "prefer_ipv4",
+        "strategy": "ipv4_only",
+        "detour": "direct-out"
+      },
+      {
+        "tag": "google",
+        "address": "https://dns.google/dns-query",
+        "address_resolver": "dns-direct",
+        "address_strategy": "prefer_ipv4",
+        "strategy": "ipv4_only",
+        "detour": "节点选择",
+        "client_subnet": "39.85.255.110"
+      }
+    ],
+    "rules": [
+      {
+        "rule_set": [
+          "geosite-cn"
+        ],
+        "server": "alidns"
+      },
+      {
+        "rule_set": [
+          "geosite-geolocation-!cn"
+        ],
+        "server": "google"
+      },
+      {
+        "server": "alidns",
+        "outbound": "direct-out"
+      },
+      {
+        "server": "google",
+        "outbound": "节点选择"
+      }
+    ],
+    "final": "dns-direct",
+    "strategy": "ipv4_only",
+    "independent_cache": true,
+    "reverse_mapping": true
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "tun",
+      "inet4_address": "172.19.0.1/30",
+      "auto_route": true,
+      "strict_route": true,
+      "stack": "system",
+      "sniff": true,
+      "sniff_override_destination": true,
+      "domain_strategy": "ipv4_only",
+      "endpoint_independent_nat": true,
+      "udp_timeout": 300
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct-out"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    },
+    {
+      "type": "dns",
+      "tag": "dns-out"
+    },
+    {
+      "type": "vmess",
+      "tag": "all-自建SG",
+      "server": "8.spf.us.kg",
+      "server_port": 8443,
+      "uuid": "3a194682-585f-423a-87e9-f687d88a5f88",
+      "security": "auto",
+      "tls": {
+        "enabled": true
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/spfnas",
+        "headers": {
+          "Host": "8.spf.us.kg"
+        }
+      }
+    },
+    {
+      "type": "vmess",
+      "tag": "sg-自建SG",
+      "server": "8.spf.us.kg",
+      "server_port": 8443,
+      "uuid": "3a194682-585f-423a-87e9-f687d88a5f88",
+      "security": "auto",
+      "tls": {
+        "enabled": true
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/spfnas",
+        "headers": {
+          "Host": "8.spf.us.kg"
+        }
+      }
+    },
+    {
+      "type": "selector",
+      "tag": "全部 🌏",
+      "outbounds": [
+        "all-自建SG"
+      ],
+      "default": "all-自建SG"
+    },
+    {
+      "type": "selector",
+      "tag": "新加坡 🇸🇬",
+      "outbounds": [
+        "sg-自建SG"
+      ],
+      "default": "sg-自建SG"
+    },
+    {
+      "type": "urltest",
+      "tag": "全部 🌏自动",
+      "outbounds": [
+        "all-自建SG"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "新加坡 🇸🇬自动",
+      "outbounds": [
+        "sg-自建SG"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "selector",
+      "tag": "节点选择",
+      "outbounds": [
+        "全部 🌏",
+        "新加坡 🇸🇬",
+        "全部 🌏自动",
+        "新加坡 🇸🇬自动",
+        "direct-out",
+        "block"
+      ],
+      "default": "全部 🌏"
+    },
+    {
+      "type": "selector",
+      "tag": "🎬 流媒体",
+      "outbounds": [
+        "节点选择",
+        "全部 🌏",
+        "新加坡 🇸🇬",
+        "全部 🌏自动",
+        "新加坡 🇸🇬自动",
+        "direct-out"
+      ],
+      "default": "节点选择"
+    },
+    {
+      "type": "selector",
+      "tag": "💬 社交媒体",
+      "outbounds": [
+        "节点选择",
+        "全部 🌏",
+        "新加坡 🇸🇬",
+        "全部 🌏自动",
+        "新加坡 🇸🇬自动",
+        "direct-out"
+      ],
+      "default": "节点选择"
+    },
+    {
+      "type": "selector",
+      "tag": "🔍 谷歌服务",
+      "outbounds": [
+        "节点选择",
+        "全部 🌏",
+        "新加坡 🇸🇬",
+        "全部 🌏自动",
+        "新加坡 🇸🇬自动",
+        "direct-out"
+      ],
+      "default": "节点选择"
+    },
+    {
+      "type": "selector",
+      "tag": "💻 开发服务",
+      "outbounds": [
+        "节点选择",
+        "全部 🌏",
+        "新加坡 🇸🇬",
+        "全部 🌏自动",
+        "新加坡 🇸🇬自动",
+        "direct-out"
+      ],
+      "default": "节点选择"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "final": "节点选择",
+    "rules": [
+      {
+        "type": "logical",
+        "mode": "or",
+        "outbound": "dns-out",
+        "rules": [
+          {
+            "protocol": [
+              "dns"
+            ],
+            "outbound": ""
+          },
+          {
+            "port": 53,
+            "outbound": ""
+          }
+        ]
+      },
+      {
+        "rule_set": [
+          "geosite-category-ads"
+        ],
+        "outbound": "block"
+      },
+      {
+        "rule_set": [
+          "geosite-netflix",
+          "geosite-disney",
+          "geosite-youtube",
+          "geosite-spotify"
+        ],
+        "outbound": "🎬 流媒体"
+      },
+      {
+        "rule_set": [
+          "geosite-telegram",
+          "geoip-telegram",
+          "geosite-twitter",
+          "geosite-facebook",
+          "geosite-instagram"
+        ],
+        "outbound": "💬 社交媒体"
+      },
+      {
+        "rule_set": [
+          "geosite-google",
+          "geoip-google"
+        ],
+        "outbound": "🔍 谷歌服务"
+      },
+      {
+        "rule_set": [
+          "geosite-github",
+          "geosite-microsoft",
+          "geosite-apple",
+          "geosite-openai"
+        ],
+        "outbound": "💻 开发服务"
+      },
+      {
+        "rule_set": [
+          "geosite-cn",
+          "geoip-cn"
+        ],
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": [
+          "geosite-geolocation-!cn"
+        ],
+        "outbound": "节点选择"
+      }
+    ],
+    "rule_set": [
+      {
+        "tag": "geosite-category-ads",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-category-ads.srs"
+      },
+      {
+        "tag": "geosite-netflix",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-netflix.srs"
+      },
+      {
+        "tag": "geosite-disney",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-disney.srs"
+      },
+      {
+        "tag": "geosite-youtube",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-youtube.srs"
+      },
+      {
+        "tag": "geosite-spotify",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-spotify.srs"
+      },
+      {
+        "tag": "geosite-telegram",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-telegram.srs"
+      },
+      {
+        "tag": "geoip-telegram",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geoip-telegram.srs"
+      },
+      {
+        "tag": "geosite-twitter",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-twitter.srs"
+      },
+      {
+        "tag": "geosite-facebook",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-facebook.srs"
+      },
+      {
+        "tag": "geosite-instagram",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-instagram.srs"
+      },
+      {
+        "tag": "geosite-google",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-google.srs"
+      },
+      {
+        "tag": "geoip-google",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geoip-google.srs"
+      },
+      {
+        "tag": "geosite-github",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-github.srs"
+      },
+      {
+        "tag": "geosite-microsoft",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-microsoft.srs"
+      },
+      {
+        "tag": "geosite-apple",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-apple.srs"
+      },
+      {
+        "tag": "geosite-openai",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-openai.srs"
+      },
+      {
+        "tag": "geosite-cn",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-cn.srs"
+      },
+      {
+        "tag": "geoip-cn",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geoip-cn.srs"
+      },
+      {
+        "tag": "geosite-geolocation-!cn",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-geolocation-!cn.srs"
+      }
+    ]
+  },
+  "experimental": {
+    "clash_api": {
+      "external_controller": "0.0.0.0:9090",
+      "external_ui": "bin/web/metacubexd",
+      "secret": "",
+      "default_mode": "rule"
+    },
+    "cache_file": {
+      "enabled": false,
+      "path": "cache.db"
+    }
+  }
+}

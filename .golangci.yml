@@ -1,0 +1,34 @@
+linters:
+  enable:
+    - gofmt
+    - golint
+    - govet
+    - errcheck
+    - staticcheck
+    - gosimple
+    - ineffassign
+
+linters-settings:
+  govet:
+    check-shadowing: true
+  golint:
+    min-confidence: 0.8
+
+issues:
+  exclude-rules:
+    - path: /usr/local/go/src/
+      linters:
+        - unused
+    - path: vendor/
+      linters:
+        - unused
+    - path: third_party/
+      linters:
+        - unused
+
+run:
+  skip-dirs:
+    - vendor/
+    - third_party/
+  skip-files:
+    - ".*_test\\.go$" 

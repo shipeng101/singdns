@@ -16,6 +16,7 @@ type Settings struct {
 	DNSPort          int    `json:"dns_port"`
 	LogLevel         string `json:"log_level"`
 	EnableAutoUpdate bool   `json:"enable_auto_update"`
+	TunInterface     string `json:"tun_interface"` // TUN 接口名称
 	UpdatedAt        int64  `json:"updated_at"`
 	Dashboard        string `json:"dashboard" gorm:"type:json"`
 	SingboxMode      string `json:"singbox_mode" gorm:"type:json"`

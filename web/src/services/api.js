@@ -221,8 +221,9 @@ export const getRuleSets = () => {
   return axios.get('/api/rulesets').then(response => response.data);
 };
 
-export const createRuleSet = (data) => {
-  return axios.post('/api/rulesets', data).then(response => response.data);
+export const createRuleSet = async (data) => {
+  const response = await axios.post('/api/rulesets', data);
+  return response;
 };
 
 export const updateRuleSet = (id, data) => {

@@ -280,6 +280,10 @@ type SingBoxGenerator struct {
 	storage storage.Storage
 }
 
+const (
+	defaultTunInterface = "tun0"
+)
+
 // NewSingBoxGenerator 创建 sing-box 配置生成器
 func NewSingBoxGenerator(storage storage.Storage) *SingBoxGenerator {
 	return &SingBoxGenerator{
@@ -287,76 +291,16 @@ func NewSingBoxGenerator(storage storage.Storage) *SingBoxGenerator {
 	}
 }
 
-// RuleGroup 规则组定义
-type RuleGroup struct {
-	Name     string
-	RuleSets []string
-	Outbound string
-}
-
-// 预定义规则组
-var defaultRuleGroups = []RuleGroup{
-	{
-		Name: "广告拦截",
-		RuleSets: []string{
-			"geosite-category-ads",
-		},
-		Outbound: "block",
-	},
-	{
-		Name: "🎬 流媒体",
-		RuleSets: []string{
-			"geosite-netflix",
-			"geosite-disney",
-			"geosite-youtube",
-			"geosite-spotify",
-		},
-		Outbound: "🎬 流媒体",
-	},
-	{
-		Name: "💬 社交媒体",
-		RuleSets: []string{
-			"geosite-telegram",
-			"geoip-telegram",
-			"geosite-twitter",
-			"geosite-facebook",
-			"geosite-instagram",
-		},
-		Outbound: "💬 社交媒体",
-	},
-	{
-		Name: "🔍 谷歌服务",
-		RuleSets: []string{
-			"geosite-google",
-			"geoip-google",
-		},
-		Outbound: "🔍 谷歌服务",
-	},
-	{
-		Name: "💻 开发服务",
-		RuleSets: []string{
-			"geosite-github",
-			"geosite-microsoft",
-			"geosite-apple",
-			"geosite-openai",
-		},
-		Outbound: "💻 开发服务",
-	},
-	{
-		Name: "国内网站",
-		RuleSets: []string{
-			"geosite-cn",
-			"geoip-cn",
-		},
-		Outbound: "direct-out",
-	},
-	{
-		Name: "国外网站",
-		RuleSets: []string{
-			"geosite-geolocation-!cn",
-		},
-		Outbound: "节点选择",
-	},
+// getTunInterface 获取 TUN 接口名称
+func (g *SingBoxGenerator) getTunInterface() string {
+	settings, err := g.storage.GetSettings()
+	if err != nil {
+		return defaultTunInterface
+	}
+	if settings.TunInterface == "" {
+		return defaultTunInterface
+	}
+	return settings.TunInterface
 }
 
 // GenerateConfig 生成配置
@@ -365,6 +309,69 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 	settings, err := g.storage.GetSettings()
 	if err != nil {
 		return nil, fmt.Errorf("get settings: %w", err)
+	}
+
+	// 获取 TUN 接口名称
+	tunInterface := g.getTunInterface()
+
+	// 获取入站模式
+	inboundMode := settings.GetInboundMode()
+
+	// 生成入站配置
+	var inbounds []InboundConfig
+	switch inboundMode {
+	case "tun":
+		// TUN 模式配置
+		inbounds = append(inbounds, InboundConfig{
+			Type:                     "tun",
+			Tag:                      "tun-in",
+			InterfaceName:            tunInterface,
+			Inet4Address:             "172.19.0.1/30",
+			AutoRoute:                true,
+			StrictRoute:              true,
+			Stack:                    "system",
+			Sniff:                    true,
+			SniffOverrideDestination: true,
+			DomainStrategy:           "ipv4_only",
+			EndpointIndependentNat:   true,
+			UDPTimeout:               300,
+		})
+	case "redirect":
+		// Redirect TCP + TProxy UDP 模式配置
+		inbounds = append(inbounds,
+			InboundConfig{
+				Type:                     "redirect",
+				Tag:                      "redirect-in",
+				Listen:                   "::",
+				Sniff:                    true,
+				SniffOverrideDestination: true,
+				DomainStrategy:           "ipv4_only",
+			},
+			InboundConfig{
+				Type:                     "tproxy",
+				Tag:                      "tproxy-in",
+				Listen:                   "::",
+				Sniff:                    true,
+				SniffOverrideDestination: true,
+				DomainStrategy:           "ipv4_only",
+			},
+		)
+	default:
+		// 默认使用 TUN 模式
+		inbounds = append(inbounds, InboundConfig{
+			Type:                     "tun",
+			Tag:                      "tun-in",
+			InterfaceName:            tunInterface,
+			Inet4Address:             "172.19.0.1/30",
+			AutoRoute:                true,
+			StrictRoute:              true,
+			Stack:                    "system",
+			Sniff:                    true,
+			SniffOverrideDestination: true,
+			DomainStrategy:           "ipv4_only",
+			EndpointIndependentNat:   true,
+			UDPTimeout:               300,
+		})
 	}
 
 	// 获取仪表盘设置
@@ -428,8 +435,6 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 	}
 
 	// 创建节点组出站
-	var groupOutbounds []string
-	var autoGroupOutbounds []string                 // 存储自动选择的节点组
 	var nodeOutboundMap = make(map[string][]string) // 存储每个组的节点出站
 
 	// 1. 首先收集所有节点出站
@@ -473,7 +478,6 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 				Default:   nodeOutbounds[0],
 			}
 			outbounds = append(outbounds, groupOutbound)
-			groupOutbounds = append(groupOutbounds, group.Name)
 		}
 	}
 
@@ -496,7 +500,6 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 				Tolerance: 50,
 			}
 			outbounds = append(outbounds, autoGroupOutbound)
-			autoGroupOutbounds = append(autoGroupOutbounds, autoGroupName)
 		}
 	}
 
@@ -576,44 +579,66 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 	var ruleSetConfigs []RuleSetConfig
 	var rules []RouteRule
 
+	// 从数据库获取所有规则集
+	dbRuleSets, err := g.storage.GetRuleSets()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get rule sets: %v", err)
+	}
+
 	// 添加所有规则集配置
 	ruleSetMap := make(map[string]bool)
-	for _, group := range defaultRuleGroups {
-		for _, ruleSetID := range group.RuleSets {
-			if !ruleSetMap[ruleSetID] {
-				ruleSetMap[ruleSetID] = true
 
-				// 添加规则集配置
-				ruleSetConfigs = append(ruleSetConfigs, RuleSetConfig{
-					Tag:    ruleSetID,
-					Type:   "local",
-					Format: "binary",
-					Path:   fmt.Sprintf("./configs/sing-box/rules/%s.srs", ruleSetID),
-				})
+	// 首先添加数据库中的规则集
+	for _, ruleSet := range dbRuleSets {
+		if !ruleSet.Enabled {
+			continue
+		}
+		if !ruleSetMap[ruleSet.ID] {
+			ruleSetMap[ruleSet.ID] = true
+			ruleSetConfigs = append(ruleSetConfigs, RuleSetConfig{
+				Tag:    ruleSet.ID,
+				Type:   "local",
+				Format: "binary",
+				Path:   fmt.Sprintf("./configs/sing-box/rules/%s.srs", ruleSet.ID),
+			})
+			// 添加规则
+			outbound := ruleSet.Outbound
+			if outbound == "direct" {
+				outbound = "direct-out"
 			}
+			rules = append(rules, RouteRule{
+				RuleSet:  []string{ruleSet.ID},
+				Outbound: outbound,
+			})
 		}
 	}
 
 	// 添加基本路由规则
-	rules = append(rules, RouteRule{
+	rules = append([]RouteRule{{
 		Type:     "logical",
 		Mode:     "or",
-		Outbound: "dns-out",
+		Outbound: "节点选择",
 		Rules: []RouteRule{
-			{Protocol: []string{"dns"}},
-			{Port: 53},
+			{
+				Protocol: []string{"dns"},
+				RuleSet:  []string{"geosite-cn"},
+				Outbound: "direct-out",
+			},
+			{
+				Port:     53,
+				RuleSet:  []string{"geosite-cn"},
+				Outbound: "direct-out",
+			},
+			{
+				Protocol: []string{"dns"},
+				Outbound: "节点选择",
+			},
+			{
+				Port:     53,
+				Outbound: "节点选择",
+			},
 		},
-	})
-
-	// 按规则组添加规则
-	for _, group := range defaultRuleGroups {
-		if len(group.RuleSets) > 0 {
-			rules = append(rules, RouteRule{
-				RuleSet:  group.RuleSets,
-				Outbound: group.Outbound,
-			})
-		}
-	}
+	}}, rules...)
 
 	// 构建 DNS 配置
 	dnsSettings, err := g.storage.GetDNSSettings()
@@ -624,14 +649,8 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 	dnsConfig := &DNSConfig{
 		Servers: []DNSServerConfig{
 			{
-				Tag:     "dns-direct",
-				Address: "223.5.5.5",
-				Detour:  "direct-out",
-			},
-			{
 				Tag:             "alidns",
 				Address:         dnsSettings.Domestic,
-				AddressResolver: "dns-direct",
 				AddressStrategy: "prefer_ipv4",
 				Strategy:        "ipv4_only",
 				Detour:          "direct-out",
@@ -639,7 +658,7 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 			{
 				Tag:             "google",
 				Address:         dnsSettings.SingboxDNS,
-				AddressResolver: "dns-direct",
+				AddressResolver: "alidns",
 				AddressStrategy: "prefer_ipv4",
 				Strategy:        "ipv4_only",
 				Detour:          "节点选择",
@@ -658,22 +677,19 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 				DisableCache: false,
 			},
 			{
-				Server:   "alidns",
 				Outbound: "direct-out",
+				Server:   "alidns",
 			},
 			{
-				Server:   "google",
 				Outbound: "节点选择",
+				Server:   "google",
 			},
 		},
-		Final:            "dns-direct",
+		Final:            "alidns",
 		Strategy:         "ipv4_only",
 		IndependentCache: true,
 		ReverseMapping:   true,
 	}
-
-	// 生成入站配置
-	inbounds := generateInbounds(settings)
 
 	// 构建实验性配置
 	experimentalConfig := &ExperimentalConfig{
@@ -836,75 +852,65 @@ func (g *SingBoxGenerator) generateOutbound(node *models.Node) (OutboundConfig, 
 	return outbound, nil
 }
 
-// getOutboundType 转换出站类型
-func getOutboundType(mode string) string {
-	switch mode {
-	case "select":
-		return "selector"
-	case "urltest":
-		return "urltest"
-	default:
-		return "selector"
-	}
-}
+// generateInbounds 生成入站配置
+func generateInbounds(settings *models.Settings) []map[string]interface{} {
+	var inbounds []map[string]interface{}
 
-// 生成入站配置
-func generateInbounds(settings *models.Settings) []InboundConfig {
-	var inbounds []InboundConfig
+	// 获取入站模式
+	inboundMode := settings.GetInboundMode()
 
-	// 根据入站模式生成配置
-	switch settings.GetInboundMode() {
+	// 根据入站模式生成不同的配置
+	switch inboundMode {
 	case "tun":
 		// TUN 模式配置
-		inbounds = append(inbounds, InboundConfig{
-			Type:                     "tun",
-			Tag:                      "tun-in",
-			InterfaceName:            "tun",
-			Inet4Address:             "172.19.0.1/30",
-			AutoRoute:                true,
-			StrictRoute:              true,
-			Stack:                    "system",
-			Sniff:                    true,
-			SniffOverrideDestination: true,
-			DomainStrategy:           "ipv4_only",
-			EndpointIndependentNat:   true,
-			UDPTimeout:               300,
+		inbounds = append(inbounds, map[string]interface{}{
+			"type":                       "tun",
+			"tag":                        "tun-in",
+			"interface_name":             "tun0",
+			"inet4_address":              "172.19.0.1/30",
+			"auto_route":                 true,
+			"strict_route":               true,
+			"stack":                      "system",
+			"sniff":                      true,
+			"sniff_override_destination": true,
+			"domain_strategy":            "ipv4_only",
+			"endpoint_independent_nat":   true,
+			"udp_timeout":                300,
 		})
 	case "redirect":
-		// Redirect TCP + TProxy UDP 模式配置
-		inbounds = append(inbounds,
-			InboundConfig{
-				Type:                     "redirect",
-				Tag:                      "redirect-in",
-				Listen:                   "::",
-				Sniff:                    true,
-				SniffOverrideDestination: true,
-				DomainStrategy:           "ipv4_only",
-			},
-			InboundConfig{
-				Type:                     "tproxy",
-				Tag:                      "tproxy-in",
-				Listen:                   "::",
-				Sniff:                    true,
-				SniffOverrideDestination: true,
-				DomainStrategy:           "ipv4_only",
-			},
-		)
+		// Redirect 模式配置
+		inbounds = append(inbounds, map[string]interface{}{
+			"type":                       "redirect",
+			"tag":                        "redirect-in",
+			"listen":                     "::",
+			"sniff":                      true,
+			"sniff_override_destination": true,
+			"domain_strategy":            "ipv4_only",
+		})
+		// 添加 TProxy 配置用于 UDP 流量
+		inbounds = append(inbounds, map[string]interface{}{
+			"type":                       "tproxy",
+			"tag":                        "tproxy-in",
+			"listen":                     "::",
+			"sniff":                      true,
+			"sniff_override_destination": true,
+			"domain_strategy":            "ipv4_only",
+		})
 	default:
 		// 默认使用 TUN 模式
-		inbounds = append(inbounds, InboundConfig{
-			Type:                     "tun",
-			Tag:                      "tun-in",
-			InterfaceName:            "tun",
-			Inet4Address:             "172.19.0.1/30",
-			AutoRoute:                true,
-			StrictRoute:              true,
-			Stack:                    "system",
-			Sniff:                    true,
-			SniffOverrideDestination: true,
-			DomainStrategy:           "ipv4_only",
-			EndpointIndependentNat:   true,
-			UDPTimeout:               300,
+		inbounds = append(inbounds, map[string]interface{}{
+			"type":                       "tun",
+			"tag":                        "tun-in",
+			"interface_name":             "tun0",
+			"inet4_address":              "172.19.0.1/30",
+			"auto_route":                 true,
+			"strict_route":               true,
+			"stack":                      "system",
+			"sniff":                      true,
+			"sniff_override_destination": true,
+			"domain_strategy":            "ipv4_only",
+			"endpoint_independent_nat":   true,
+			"udp_timeout":                300,
 		})
 	}
 

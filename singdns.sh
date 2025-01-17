@@ -111,6 +111,14 @@ EOF
 start_service() {
     echo -e "${YELLOW}正在启动 SingDNS...${NC}"
     
+    # 开启 IP 转发
+    echo -e "${YELLOW}开启 IP 转发...${NC}"
+    if ! sysctl -w net.ipv4.ip_forward=1 > /dev/null 2>&1; then
+        echo -e "${RED}开启 IP 转发失败${NC}"
+    else
+        echo -e "${GREEN}IP 转发已开启${NC}"
+    fi
+    
     # 启动后端
     start_backend
     

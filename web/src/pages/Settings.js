@@ -231,8 +231,8 @@ const Settings = ({ mode, setMode, onDashboardClick }) => {
         { label: '腾讯 DNS', value: '119.29.29.29' },
       ],
       doh: [
-        { label: '阿里 DOH', value: 'https://dns.alidns.com/dns-query' },
-        { label: '腾讯 DOH', value: 'https://doh.pub/dns-query' },
+        { label: '阿里 DOH', value: 'https://223.5.5.5/dns-query' },
+        { label: '阿里 DOH 2', value: 'https://120.53.53.53/dns-query' },
       ],
     },
     singbox: {

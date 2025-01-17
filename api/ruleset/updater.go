@@ -2,6 +2,9 @@ package ruleset
 
 import (
 	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"singdns/api/models"
 	"singdns/api/storage"
 	"sync"
@@ -86,43 +89,37 @@ func (u *Updater) updateAll() {
 
 // updateOne updates a single rule set
 func (u *Updater) updateOne(ruleSet *models.RuleSet) error {
-	// Download rule set
-	data, err := DownloadRuleSet(ruleSet.URL)
+	// 确保规则集目录存在
+	rulesDir := "configs/sing-box/rules"
+	if err := os.MkdirAll(rulesDir, 0755); err != nil {
+		return fmt.Errorf("failed to create rules directory: %v", err)
+	}
+
+	// 下载规则集
+	resp, err := http.Get(ruleSet.URL)
 	if err != nil {
 		return fmt.Errorf("failed to download rule set: %v", err)
 	}
+	defer resp.Body.Close()
 
-	// Parse rule set
-	parser := NewParser(ruleSet.Type)
-	if parser == nil {
-		return fmt.Errorf("unsupported rule set type")
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to download rule set: status code %d", resp.StatusCode)
 	}
 
-	rules, err := parser.Parse(data)
+	// 创建目标文件
+	out, err := os.Create(ruleSet.Path)
 	if err != nil {
-		return fmt.Errorf("failed to parse rule set: %v", err)
+		return fmt.Errorf("failed to create file %s: %v", ruleSet.Path, err)
+	}
+	defer out.Close()
+
+	// 写入文件
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to save rule set: %v", err)
 	}
 
-	// Create or update rule
-	rule := &models.Rule{
-		ID:          fmt.Sprintf("ruleset-%s", ruleSet.ID),
-		Name:        ruleSet.Name,
-		Type:        ruleSet.Format,
-		Outbound:    ruleSet.Outbound,
-		Description: ruleSet.Description,
-		Enabled:     ruleSet.Enabled,
-		Priority:    100, // Default priority for rule sets
-		UpdatedAt:   time.Now(),
-	}
-
-	// Set values
-	rule.Values = rules
-
-	if err := u.storage.SaveRule(rule); err != nil {
-		return fmt.Errorf("failed to save rule: %v", err)
-	}
-
-	// Update rule set timestamp
+	// 更新规则集时间戳
 	ruleSet.UpdatedAt = time.Now()
 	if err := u.storage.SaveRuleSet(ruleSet); err != nil {
 		return fmt.Errorf("failed to update rule set: %v", err)

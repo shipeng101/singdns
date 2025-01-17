@@ -2,9 +2,13 @@ package proxy
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
+	"regexp"
+	"strings"
 	"time"
 
 	"singdns/api/models"
@@ -29,6 +33,302 @@ func NewManager(logger *logrus.Logger, configPath string, workDir string) *Manag
 		configPath: configPath,
 		workDir:    workDir,
 	}
+}
+
+// getLocalNetwork 获取本机网络信息
+func (m *Manager) getLocalNetwork() (string, string, string, error) {
+	// 获取默认路由的网卡和网关
+	cmd := exec.Command("ip", "route", "show", "default")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", "", "", fmt.Errorf("get default route: %v", err)
+	}
+	fields := strings.Fields(string(output))
+	if len(fields) < 3 {
+		return "", "", "", fmt.Errorf("invalid route output: %s", string(output))
+	}
+	gateway := fields[2] // 网关地址
+	iface := fields[4]
+
+	// 获取网卡的 IP 地址和网段
+	cmd = exec.Command("ip", "addr", "show", iface)
+	output, err = cmd.Output()
+	if err != nil {
+		return "", "", "", fmt.Errorf("get interface addr: %v", err)
+	}
+
+	// 使用正则表达式匹配 IP/掩码
+	re := regexp.MustCompile(`inet\s+(\d+\.\d+\.\d+\.\d+/\d+)`)
+	matches := re.FindStringSubmatch(string(output))
+	if len(matches) < 2 {
+		return "", "", "", fmt.Errorf("no IPv4 address found for interface %s", iface)
+	}
+
+	// 解析 IP 和网段
+	ip, ipNet, err := net.ParseCIDR(matches[1])
+	if err != nil {
+		return "", "", "", fmt.Errorf("parse CIDR: %v", err)
+	}
+
+	return ip.String(), ipNet.String(), gateway, nil
+}
+
+// findAvailableTunInterface 获取可用的 TUN 接口名称
+func (m *Manager) findAvailableTunInterface() string {
+	// 尝试从 tun0 到 tun9
+	for i := 0; i < 10; i++ {
+		ifName := fmt.Sprintf("tun%d", i)
+		// 检查接口是否已存在
+		_, err := net.InterfaceByName(ifName)
+		if err != nil {
+			// 接口不存在,可以使用
+			return ifName
+		}
+	}
+	// 如果所有接口都被占用,返回一个新的名称
+	return fmt.Sprintf("tun%d", time.Now().Unix()%100)
+}
+
+// getTunInterface 从配置文件中获取当前使用的 TUN 接口名称
+func (m *Manager) getTunInterface() (string, error) {
+	configData, err := os.ReadFile(m.configPath)
+	if err != nil {
+		return "", fmt.Errorf("read config file: %v", err)
+	}
+
+	var config struct {
+		Inbounds []struct {
+			Type          string `json:"type"`
+			InterfaceName string `json:"interface_name"`
+		} `json:"inbounds"`
+	}
+	if err := json.Unmarshal(configData, &config); err != nil {
+		return "", fmt.Errorf("parse config: %v", err)
+	}
+
+	for _, inbound := range config.Inbounds {
+		if inbound.Type == "tun" {
+			if inbound.InterfaceName != "" {
+				return inbound.InterfaceName, nil
+			}
+			break
+		}
+	}
+
+	return "", fmt.Errorf("tun interface not found in config")
+}
+
+// setupFirewallRules 设置防火墙规则
+func (m *Manager) setupFirewallRules(mode string) error {
+	// 如果是 TUN 模式，等待接口创建并获取接口名称
+	var tunInterface string
+	if mode == "tun" {
+		// 最多等待 5 秒
+		for i := 0; i < 10; i++ {
+			// 从配置文件获取 TUN 接口名称
+			configData, err := os.ReadFile(m.configPath)
+			if err != nil {
+				return fmt.Errorf("read config file: %v", err)
+			}
+
+			var config struct {
+				Inbounds []struct {
+					Type          string `json:"type"`
+					InterfaceName string `json:"interface_name"`
+				} `json:"inbounds"`
+			}
+			if err := json.Unmarshal(configData, &config); err != nil {
+				return fmt.Errorf("parse config: %v", err)
+			}
+
+			// 查找 TUN 接口名称
+			for _, inbound := range config.Inbounds {
+				if inbound.Type == "tun" {
+					if inbound.InterfaceName != "" {
+						tunInterface = inbound.InterfaceName
+						break
+					}
+				}
+			}
+
+			// 检查接口是否存在
+			if tunInterface != "" {
+				interfaces, err := net.Interfaces()
+				if err != nil {
+					return fmt.Errorf("get interfaces: %v", err)
+				}
+
+				for _, iface := range interfaces {
+					if iface.Name == tunInterface {
+						m.logger.Infof("找到 TUN 接口: %s", tunInterface)
+						goto FOUND
+					}
+				}
+			}
+
+			m.logger.Info("等待 TUN 接口创建...")
+			time.Sleep(time.Millisecond * 500)
+		}
+		return fmt.Errorf("等待 TUN 接口创建超时")
+	}
+
+FOUND:
+	// 配置 systemd-resolved 在所有接口上监听 DNS 请求
+	var resolvedConf string
+	resolvedConf = "/etc/systemd/resolved.conf"
+
+	// 读取现有配置
+	var err error
+	var existingConfig []byte
+	existingConfig, err = os.ReadFile(resolvedConf)
+	if err != nil {
+		m.logger.WithError(err).Warn("Failed to read resolved.conf")
+	}
+
+	// 准备新的配置内容
+	var newConfig string
+	newConfig = string(existingConfig)
+	if !strings.Contains(newConfig, "DNSStubListenerExtra=0.0.0.0") {
+		newConfig = newConfig + "\nDNSStubListenerExtra=0.0.0.0"
+	}
+	if !strings.Contains(newConfig, "DNSStubListenerExtra=::") {
+		newConfig = newConfig + "\nDNSStubListenerExtra=::"
+	}
+
+	// 创建临时文件
+	var tmpfile *os.File
+	tmpfile, err = os.CreateTemp("", "resolved.conf")
+	if err != nil {
+		return fmt.Errorf("create temp file: %v", err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	// 写入新的配置内容
+	if _, err = tmpfile.WriteString(newConfig); err != nil {
+		return fmt.Errorf("write config: %v", err)
+	}
+	if err = tmpfile.Close(); err != nil {
+		return fmt.Errorf("close temp file: %v", err)
+	}
+
+	// 使用 sudo 复制配置文件并设置权限
+	cpCmd := exec.Command("sudo", "cp", tmpfile.Name(), resolvedConf)
+	if err = cpCmd.Run(); err != nil {
+		return fmt.Errorf("copy config file: %v", err)
+	}
+
+	chmodCmd := exec.Command("sudo", "chmod", "644", resolvedConf)
+	if err = chmodCmd.Run(); err != nil {
+		return fmt.Errorf("chmod config file: %v", err)
+	}
+
+	// 重启 systemd-resolved 服务
+	restartCmd := exec.Command("sudo", "systemctl", "restart", "systemd-resolved")
+	if err = restartCmd.Run(); err != nil {
+		return fmt.Errorf("restart systemd-resolved: %v", err)
+	}
+
+	// 等待服务完全启动
+	time.Sleep(2 * time.Second)
+
+	// 验证 DNS 监听是否正常
+	checkCmd := exec.Command("ss", "-lnup")
+	var output []byte
+	output, err = checkCmd.Output()
+	if err != nil {
+		m.logger.WithError(err).Warn("Failed to check DNS listener status")
+	} else {
+		if strings.Contains(string(output), ":53") {
+			m.logger.Info("DNS listener is active")
+		} else {
+			m.logger.Warn("DNS listener may not be active")
+		}
+	}
+
+	// 获取本地网络信息
+	_, localNet, gateway, err := m.getLocalNetwork()
+	if err != nil {
+		return fmt.Errorf("get local network: %v", err)
+	}
+
+	// 首先清除现有规则
+	flushCmd := exec.Command("nft", "flush", "ruleset")
+	var flushStderr bytes.Buffer
+	flushCmd.Stderr = &flushStderr
+	if err = flushCmd.Run(); err != nil {
+		m.logger.WithFields(logrus.Fields{
+			"error":  err,
+			"stderr": flushStderr.String(),
+		}).Warn("Failed to flush nftables rules")
+	}
+
+	// 构建 nftables 规则
+	rules := fmt.Sprintf(`
+table ip nat {
+    chain postrouting {
+        type nat hook postrouting priority 100; policy accept;
+        ip saddr %s ip saddr != %s oif "%s" masquerade
+    }
+}`, localNet, gateway, tunInterface)
+
+	// 写入临时文件
+	var nftfile *os.File
+	nftfile, err = os.CreateTemp("", "nftables-rules-*.nft")
+	if err != nil {
+		return fmt.Errorf("create temp file: %v", err)
+	}
+	defer os.Remove(nftfile.Name())
+
+	if _, err = nftfile.Write([]byte(rules)); err != nil {
+		return fmt.Errorf("write rules file: %v", err)
+	}
+	if err = nftfile.Close(); err != nil {
+		return fmt.Errorf("close rules file: %v", err)
+	}
+
+	// 应用规则
+	cmd := exec.Command("nft", "-f", nftfile.Name())
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err = cmd.Run(); err != nil {
+		output := stderr.String()
+		m.logger.WithFields(logrus.Fields{
+			"rules":  rules,
+			"output": output,
+		}).Error("Failed to apply nftables rules")
+		return fmt.Errorf("apply nftables rules: %v, output: %s", err, output)
+	}
+
+	// 验证规则是否生效
+	listCmd := exec.Command("nft", "list", "ruleset")
+	var listOutput bytes.Buffer
+	listCmd.Stdout = &listOutput
+	if err = listCmd.Run(); err != nil {
+		return fmt.Errorf("verify rules: %v", err)
+	}
+
+	// 检查输出中是否包含我们设置的规则
+	if !strings.Contains(listOutput.String(), fmt.Sprintf("ip saddr %s", localNet)) ||
+		!strings.Contains(listOutput.String(), fmt.Sprintf("oif \"%s\"", tunInterface)) {
+		return fmt.Errorf("rules verification failed: rules not found in output")
+	}
+
+	m.logger.Info("防火墙规则设置成功并已验证生效")
+	return nil
+}
+
+// getDefaultInterface 获取默认网卡名称
+func (m *Manager) getDefaultInterface() string {
+	cmd := exec.Command("ip", "route", "show", "default")
+	output, err := cmd.Output()
+	if err != nil {
+		return "eth0" // 默认值
+	}
+	fields := strings.Fields(string(output))
+	if len(fields) < 5 {
+		return "eth0"
+	}
+	return fields[4]
 }
 
 // Start starts the sing-box service
@@ -76,6 +376,29 @@ func (m *Manager) Start() error {
 	}
 	m.logger.WithField("permissions", configInfo.Mode().String()).Debug("Config file permissions")
 
+	// Enable IP forwarding
+	if err := os.WriteFile("/proc/sys/net/ipv4/ip_forward", []byte("1\n"), 0644); err != nil {
+		m.logger.WithError(err).Warn("Failed to enable IP forwarding by writing to /proc/sys/net/ipv4/ip_forward")
+		// 尝试使用 sudo sysctl
+		enableCmd := exec.Command("sudo", "sysctl", "-w", "net.ipv4.ip_forward=1")
+		if err := enableCmd.Run(); err != nil {
+			m.logger.WithError(err).Error("Failed to enable IP forwarding using sysctl")
+		} else {
+			m.logger.Info("IP forwarding enabled using sysctl")
+		}
+	} else {
+		m.logger.Info("IP forwarding enabled by writing to /proc/sys/net/ipv4/ip_forward")
+	}
+
+	// 验证 IP 转发是否已开启
+	if data, err := os.ReadFile("/proc/sys/net/ipv4/ip_forward"); err == nil {
+		if string(bytes.TrimSpace(data)) == "1" {
+			m.logger.Info("Verified IP forwarding is enabled")
+		} else {
+			m.logger.Warn("IP forwarding appears to be disabled")
+		}
+	}
+
 	// Create command
 	m.cmd = exec.Command(binPath, "run", "-c", m.configPath)
 	m.cmd.Dir = m.workDir
@@ -105,24 +428,78 @@ func (m *Manager) Start() error {
 	}
 
 	m.logger.Info("sing-box service started successfully")
+
+	// 等待一会儿让 sing-box 完全启动并创建接口
+	time.Sleep(time.Second * 2)
+
+	// 读取配置文件以确定模式
+	configData, err := os.ReadFile(m.configPath)
+	if err != nil {
+		return fmt.Errorf("read config file: %v", err)
+	}
+
+	var config struct {
+		Inbounds []struct {
+			Type string `json:"type"`
+		} `json:"inbounds"`
+	}
+	if err := json.Unmarshal(configData, &config); err != nil {
+		return fmt.Errorf("parse config: %v", err)
+	}
+
+	// 确定模式
+	mode := "tun"
+	for _, inbound := range config.Inbounds {
+		if inbound.Type == "redirect" {
+			mode = "redirect"
+			break
+		}
+	}
+
+	// 设置防火墙规则
+	if err := m.setupFirewallRules(mode); err != nil {
+		m.logger.WithError(err).Error("Failed to setup firewall rules")
+		// 这里我们不返回错误,因为服务已经启动成功
+	}
+
+	return nil
+}
+
+// clearFirewallRules 清除防火墙规则
+func (m *Manager) clearFirewallRules() error {
+	cmd := exec.Command("nft", "flush", "ruleset")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		errOutput := stderr.String()
+		m.logger.WithFields(logrus.Fields{
+			"error":  err,
+			"stderr": errOutput,
+		}).Error("Failed to clear nftables rules")
+		return fmt.Errorf("clear nftables rules: %v (stderr: %s)", err, errOutput)
+	}
+	m.logger.Info("Firewall rules cleared")
 	return nil
 }
 
 // Stop stops the sing-box service
 func (m *Manager) Stop() error {
 	if !m.IsRunning() {
-		return nil
+		return fmt.Errorf("service is not running")
 	}
 
-	if err := m.cmd.Process.Kill(); err != nil {
-		m.logger.WithError(err).Error("Failed to stop service")
-		// If killing the process fails, try pkill as a fallback
-		if err := exec.Command("pkill", "-f", "sing-box").Run(); err != nil {
-			m.logger.WithError(err).Error("Failed to kill processes")
-			return fmt.Errorf("failed to kill process: %v", err)
-		}
+	// 清除防火墙规则
+	if err := m.clearFirewallRules(); err != nil {
+		m.logger.WithError(err).Warn("Failed to clear firewall rules, continuing with service stop")
 	}
+
+	// Kill the process
+	if err := m.cmd.Process.Kill(); err != nil {
+		return fmt.Errorf("kill process: %v", err)
+	}
+
 	m.cmd = nil
+	m.logger.Info("Service stopped")
 	return nil
 }
 

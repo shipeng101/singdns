@@ -162,18 +162,16 @@ const Rules = () => {
 
     try {
       setLoading(true);
-      // 从规则名称中提取规则集类型
-      const ruleSetType = deletingRule.name.split(':')[0];
-      const ruleSetCategory = deletingRule.name.split(':')[1];
-      const ruleSetId = `${ruleSetType}-${ruleSetCategory}`;
-
-      await deleteRuleSet(ruleSetId);
+      await deleteRuleSet(deletingRule.id);
       
       setSnackbar({
         open: true,
         message: '规则集删除成功',
         severity: 'success'
       });
+      
+      // 刷新规则列表
+      await fetchRules();
     } catch (error) {
       console.error('Failed to delete rule set:', error);
       setSnackbar({
@@ -215,36 +213,40 @@ const Rules = () => {
   const handleAddRule = async () => {
     try {
       setLoading(true);
-      // 从规则名称中提取规则集类型
-      const ruleSetType = newRule.type;
-      const ruleSetCategory = newRule.name;
+      // 从规则名称中提取规则集类型和类别
+      const ruleSetType = newRule.type.toLowerCase();
+      const ruleSetCategory = newRule.name.toLowerCase();
       const ruleSetId = `${ruleSetType}-${ruleSetCategory}`;
+      const ruleSetPath = `configs/sing-box/rules/${ruleSetId}.srs`;
 
       // 构造规则集数据
       const ruleSetData = {
         id: ruleSetId,
-        name: `${ruleSetType}:${ruleSetCategory}`,
+        name: `${ruleSetCategory}`,
         type: ruleSetType,
+        format: 'binary',
         outbound: newRule.outbound,
-        enabled: editingRule ? editingRule.enabled : true
+        enabled: editingRule ? editingRule.enabled : true,
+        path: ruleSetPath
       };
 
       // 如果是 geosite 或 geoip 规则集，添加 URL
       if (['geosite', 'geoip'].includes(ruleSetType) && newRule.matchContents.length > 0) {
         ruleSetData.url = newRule.matchContents[0];
-        ruleSetData.format = 'binary';
-        ruleSetData.path = `configs/sing-box/rules/${ruleSetId}.srs`;
       } else if (newRule.type !== 'ip_is_private') {
         // 对于其他类型的规则，添加匹配内容
         ruleSetData.matchContents = newRule.matchContents;
       }
+
+      console.log('Creating rule set with data:', ruleSetData);
 
       if (editingRule) {
         // 更新规则集
         await updateRuleSet(ruleSetId, ruleSetData);
       } else {
         // 创建规则集
-        await createRuleSet(ruleSetData);
+        const response = await createRuleSet(ruleSetData);
+        console.log('Response:', response);
       }
       
       // 如果是规则集类型，立即更新规则
@@ -275,7 +277,7 @@ const Rules = () => {
       console.error('Failed to add/update rule set:', error);
       setSnackbar({
         open: true,
-        message: `规则集${editingRule ? '更新' : '添加'}失败`,
+        message: `规则集${editingRule ? '更新' : '添加'}失败: ${error.message}`,
         severity: 'error'
       });
     } finally {
@@ -312,7 +314,7 @@ const Rules = () => {
       return getDisplayName(category);
     }
 
-    return name;
+    return getDisplayName(name);
   };
 
   // 获取显示名称
@@ -342,6 +344,8 @@ const Rules = () => {
         return '中国大陆';
       case 'geolocation-!cn':
         return '非中国大陆';
+      case 'cloudflare':
+        return 'Cloudflare';
       default:
         return category;
     }

@@ -752,7 +752,11 @@ func (s *Server) handleCreateRuleSet(c *gin.Context) {
 		return
 	}
 
-	ruleSet.ID = uuid.New().String()
+	// 使用前端传入的ID
+	if ruleSet.ID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "rule set ID is required"})
+		return
+	}
 	ruleSet.UpdatedAt = time.Now()
 
 	// 创建规则集目录
@@ -764,8 +768,9 @@ func (s *Server) handleCreateRuleSet(c *gin.Context) {
 
 	// 如果是 geosite 或 geoip 类型的规则集，下载规则文件
 	if ruleSet.Type == "geosite" || ruleSet.Type == "geoip" {
-		filePath := fmt.Sprintf("%s/%s.srs", rulesDir, ruleSet.ID)
-		out, err := os.Create(filePath)
+		// 确保使用正确的文件路径
+		ruleSet.Path = fmt.Sprintf("configs/sing-box/rules/%s.srs", ruleSet.ID)
+		out, err := os.Create(ruleSet.Path)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to create file: %v", err)})
 			return
@@ -828,12 +833,68 @@ func (s *Server) handleUpdateRuleSet(c *gin.Context) {
 		return
 	}
 
-	ruleSet.ID = id
-	ruleSet.UpdatedAt = time.Now()
+	// 检查规则集是否存在
+	existingRuleSet, err := s.storage.GetRuleSetByID(id)
+	if err != nil {
+		// 如果规则集不存在，创建新的规则集
+		ruleSet.ID = id
+		ruleSet.UpdatedAt = time.Now()
 
-	if err := s.storage.SaveRuleSet(&ruleSet); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		// 确保规则集目录存在
+		rulesDir := "configs/sing-box/rules"
+		if err := os.MkdirAll(rulesDir, 0755); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to create rules directory: %v", err)})
+			return
+		}
+
+		// 设置文件路径
+		ruleSet.Path = fmt.Sprintf("configs/sing-box/rules/%s.srs", ruleSet.ID)
+
+		// 如果是远程规则集，下载规则文件
+		if ruleSet.Type == "geosite" || ruleSet.Type == "geoip" {
+			// 创建目标文件
+			out, err := os.Create(ruleSet.Path)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to create file: %v", err)})
+				return
+			}
+			defer out.Close()
+
+			// 下载文件
+			resp, err := http.Get(ruleSet.URL)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to download rule set: %v", err)})
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to download rule set: status code %d", resp.StatusCode)})
+				return
+			}
+
+			// 写入文件
+			_, err = io.Copy(out, resp.Body)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to save rule set: %v", err)})
+				return
+			}
+		}
+
+		if err := s.storage.SaveRuleSet(&ruleSet); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	} else {
+		// 如果规则集存在，更新现有规则集
+		ruleSet.ID = id
+		ruleSet.UpdatedAt = time.Now()
+		ruleSet.Path = existingRuleSet.Path // 保持原有的文件路径
+
+		if err := s.storage.SaveRuleSet(&ruleSet); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	// 重新生成配置文件

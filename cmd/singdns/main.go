@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"singdns/api"
@@ -16,6 +17,10 @@ import (
 	"time"
 
 	"singdns/api/models"
+
+	"net"
+	"regexp"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -93,7 +98,80 @@ func generateConfig(configType string) error {
 	return nil
 }
 
+func enableIPForwarding() error {
+	// 尝试直接写入
+	if err := os.WriteFile("/proc/sys/net/ipv4/ip_forward", []byte("1\n"), 0644); err == nil {
+		return nil
+	}
+
+	// 如果直接写入失败，尝试使用 sysctl 命令
+	cmd := exec.Command("sysctl", "-w", "net.ipv4.ip_forward=1")
+	if err := cmd.Run(); err == nil {
+		return nil
+	}
+
+	// 如果普通 sysctl 失败，尝试使用 sudo
+	cmd = exec.Command("sudo", "sysctl", "-w", "net.ipv4.ip_forward=1")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to enable IP forwarding: %v", err)
+	}
+
+	return nil
+}
+
+// 获取本机网络信息
+func getLocalNetwork() (string, string, error) {
+	// 获取默认路由的网卡
+	cmd := exec.Command("ip", "route", "show", "default")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", "", fmt.Errorf("get default route: %v", err)
+	}
+	fields := strings.Fields(string(output))
+	if len(fields) < 5 {
+		return "", "", fmt.Errorf("invalid route output: %s", string(output))
+	}
+	iface := fields[4]
+
+	// 获取网卡的 IP 地址和网段
+	cmd = exec.Command("ip", "addr", "show", iface)
+	output, err = cmd.Output()
+	if err != nil {
+		return "", "", fmt.Errorf("get interface addr: %v", err)
+	}
+
+	// 使用正则表达式匹配 IP/掩码
+	re := regexp.MustCompile(`inet\s+(\d+\.\d+\.\d+\.\d+/\d+)`)
+	matches := re.FindStringSubmatch(string(output))
+	if len(matches) < 2 {
+		return "", "", fmt.Errorf("no IPv4 address found for interface %s", iface)
+	}
+
+	// 解析 IP 和网段
+	ip, ipNet, err := net.ParseCIDR(matches[1])
+	if err != nil {
+		return "", "", fmt.Errorf("parse CIDR: %v", err)
+	}
+
+	return ip.String(), ipNet.String(), nil
+}
+
+func setupNetwork() error {
+	// 只开启 IP 转发
+	if err := enableIPForwarding(); err != nil {
+		return fmt.Errorf("enable IP forwarding: %v", err)
+	}
+	return nil
+}
+
 func main() {
+	// 设置网络
+	if err := setupNetwork(); err != nil {
+		log.Printf("Warning: Failed to setup network: %v", err)
+	} else {
+		log.Println("Network setup completed")
+	}
+
 	// 初始化配置目录
 	if err := os.MkdirAll("configs/sing-box", 0755); err != nil {
 		log.Fatalf("Failed to create config directory: %v", err)

@@ -8,14 +8,8 @@
   "dns": {
     "servers": [
       {
-        "tag": "dns-direct",
-        "address": "223.5.5.5",
-        "detour": "direct-out"
-      },
-      {
         "tag": "alidns",
-        "address": "https://dns.alidns.com/dns-query",
-        "address_resolver": "dns-direct",
+        "address": "https://223.5.5.5/dns-query",
         "address_strategy": "prefer_ipv4",
         "strategy": "ipv4_only",
         "detour": "direct-out"
@@ -23,7 +17,7 @@
       {
         "tag": "google",
         "address": "https://dns.google/dns-query",
-        "address_resolver": "dns-direct",
+        "address_resolver": "alidns",
         "address_strategy": "prefer_ipv4",
         "strategy": "ipv4_only",
         "detour": "节点选择",
@@ -52,7 +46,7 @@
         "outbound": "节点选择"
       }
     ],
-    "final": "dns-direct",
+    "final": "alidns",
     "strategy": "ipv4_only",
     "independent_cache": true,
     "reverse_mapping": true
@@ -61,7 +55,7 @@
     {
       "type": "tun",
       "tag": "tun-in",
-      "interface_name": "tun",
+      "interface_name": "tun0",
       "inet4_address": "172.19.0.1/30",
       "auto_route": true,
       "strict_route": true,
@@ -231,17 +225,33 @@
       {
         "type": "logical",
         "mode": "or",
-        "outbound": "dns-out",
+        "outbound": "节点选择",
         "rules": [
           {
             "protocol": [
               "dns"
             ],
-            "outbound": ""
+            "rule_set": [
+              "geosite-cn"
+            ],
+            "outbound": "direct-out"
           },
           {
             "port": 53,
-            "outbound": ""
+            "rule_set": [
+              "geosite-cn"
+            ],
+            "outbound": "direct-out"
+          },
+          {
+            "protocol": [
+              "dns"
+            ],
+            "outbound": "节点选择"
+          },
+          {
+            "port": 53,
+            "outbound": "节点选择"
           }
         ]
       },
@@ -253,42 +263,126 @@
       },
       {
         "rule_set": [
-          "geosite-netflix",
-          "geosite-disney",
-          "geosite-youtube",
-          "geosite-spotify"
+          "geosite-google"
         ],
-        "outbound": "🎬 流媒体"
+        "outbound": "节点选择"
       },
       {
         "rule_set": [
-          "geosite-telegram",
-          "geoip-telegram",
-          "geosite-twitter",
-          "geosite-facebook",
-          "geosite-instagram"
-        ],
-        "outbound": "💬 社交媒体"
-      },
-      {
-        "rule_set": [
-          "geosite-google",
           "geoip-google"
         ],
-        "outbound": "🔍 谷歌服务"
+        "outbound": "节点选择"
       },
       {
         "rule_set": [
-          "geosite-github",
-          "geosite-microsoft",
-          "geosite-apple",
+          "geosite-telegram"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geoip-telegram"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geosite-youtube"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geosite-spotify"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geosite-category-games"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geosite-netflix"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geoip-netflix"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geosite-disney"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geosite-apple"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geosite-microsoft"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
           "geosite-openai"
         ],
-        "outbound": "💻 开发服务"
+        "outbound": "节点选择"
       },
       {
         "rule_set": [
-          "geosite-cn",
+          "geosite-twitter"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geosite-facebook"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geosite-instagram"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geosite-amazon"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geosite-github"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geosite-category-porn"
+        ],
+        "outbound": "节点选择"
+      },
+      {
+        "rule_set": [
+          "geosite-cn"
+        ],
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": [
           "geoip-cn"
         ],
         "outbound": "direct-out"
@@ -297,7 +391,13 @@
         "rule_set": [
           "geosite-geolocation-!cn"
         ],
-        "outbound": "节点选择"
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": [
+          "geoip-cloudflare"
+        ],
+        "outbound": "direct-out"
       }
     ],
     "rule_set": [
@@ -308,16 +408,28 @@
         "path": "./configs/sing-box/rules/geosite-category-ads.srs"
       },
       {
-        "tag": "geosite-netflix",
+        "tag": "geosite-google",
         "type": "local",
         "format": "binary",
-        "path": "./configs/sing-box/rules/geosite-netflix.srs"
+        "path": "./configs/sing-box/rules/geosite-google.srs"
       },
       {
-        "tag": "geosite-disney",
+        "tag": "geoip-google",
         "type": "local",
         "format": "binary",
-        "path": "./configs/sing-box/rules/geosite-disney.srs"
+        "path": "./configs/sing-box/rules/geoip-google.srs"
+      },
+      {
+        "tag": "geosite-telegram",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-telegram.srs"
+      },
+      {
+        "tag": "geoip-telegram",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geoip-telegram.srs"
       },
       {
         "tag": "geosite-youtube",
@@ -332,16 +444,46 @@
         "path": "./configs/sing-box/rules/geosite-spotify.srs"
       },
       {
-        "tag": "geosite-telegram",
+        "tag": "geosite-category-games",
         "type": "local",
         "format": "binary",
-        "path": "./configs/sing-box/rules/geosite-telegram.srs"
+        "path": "./configs/sing-box/rules/geosite-category-games.srs"
       },
       {
-        "tag": "geoip-telegram",
+        "tag": "geosite-netflix",
         "type": "local",
         "format": "binary",
-        "path": "./configs/sing-box/rules/geoip-telegram.srs"
+        "path": "./configs/sing-box/rules/geosite-netflix.srs"
+      },
+      {
+        "tag": "geoip-netflix",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geoip-netflix.srs"
+      },
+      {
+        "tag": "geosite-disney",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-disney.srs"
+      },
+      {
+        "tag": "geosite-apple",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-apple.srs"
+      },
+      {
+        "tag": "geosite-microsoft",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-microsoft.srs"
+      },
+      {
+        "tag": "geosite-openai",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geosite-openai.srs"
       },
       {
         "tag": "geosite-twitter",
@@ -362,16 +504,10 @@
         "path": "./configs/sing-box/rules/geosite-instagram.srs"
       },
       {
-        "tag": "geosite-google",
+        "tag": "geosite-amazon",
         "type": "local",
         "format": "binary",
-        "path": "./configs/sing-box/rules/geosite-google.srs"
-      },
-      {
-        "tag": "geoip-google",
-        "type": "local",
-        "format": "binary",
-        "path": "./configs/sing-box/rules/geoip-google.srs"
+        "path": "./configs/sing-box/rules/geosite-amazon.srs"
       },
       {
         "tag": "geosite-github",
@@ -380,22 +516,10 @@
         "path": "./configs/sing-box/rules/geosite-github.srs"
       },
       {
-        "tag": "geosite-microsoft",
+        "tag": "geosite-category-porn",
         "type": "local",
         "format": "binary",
-        "path": "./configs/sing-box/rules/geosite-microsoft.srs"
-      },
-      {
-        "tag": "geosite-apple",
-        "type": "local",
-        "format": "binary",
-        "path": "./configs/sing-box/rules/geosite-apple.srs"
-      },
-      {
-        "tag": "geosite-openai",
-        "type": "local",
-        "format": "binary",
-        "path": "./configs/sing-box/rules/geosite-openai.srs"
+        "path": "./configs/sing-box/rules/geosite-category-porn.srs"
       },
       {
         "tag": "geosite-cn",
@@ -414,13 +538,19 @@
         "type": "local",
         "format": "binary",
         "path": "./configs/sing-box/rules/geosite-geolocation-!cn.srs"
+      },
+      {
+        "tag": "geoip-cloudflare",
+        "type": "local",
+        "format": "binary",
+        "path": "./configs/sing-box/rules/geoip-cloudflare.srs"
       }
     ]
   },
   "experimental": {
     "clash_api": {
       "external_controller": "0.0.0.0:9090",
-      "external_ui": "bin/web/metacubexd",
+      "external_ui": "bin/web/yacd",
       "secret": "",
       "default_mode": "rule"
     },

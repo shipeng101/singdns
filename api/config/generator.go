@@ -522,75 +522,55 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 	}
 
 	// 添加节点选择器
+	var selectorOutbounds []string
+	for _, group := range nodeGroups {
+		if !group.Active {
+			continue
+		}
+		nodeOutbounds := nodeOutboundMap[group.Name]
+		if len(nodeOutbounds) > 0 {
+			selectorOutbounds = append(selectorOutbounds, group.Name)
+			selectorOutbounds = append(selectorOutbounds, fmt.Sprintf("%s自动", group.Name))
+		}
+	}
+	// 添加直连和拦截选项
+	selectorOutbounds = append(selectorOutbounds, "direct-out", "block")
+
 	outbounds = append(outbounds, OutboundConfig{
-		Type: "selector",
-		Tag:  "节点选择",
-		Outbounds: []string{
-			"全部 🌏",
-			"新加坡 🇸🇬",
-			"全部 🌏自动",
-			"新加坡 🇸🇬自动",
-			"direct-out",
-			"block",
-		},
-		Default: "全部 🌏",
+		Type:      "selector",
+		Tag:       "节点选择",
+		Outbounds: selectorOutbounds,
+		Default:   selectorOutbounds[0], // 默认使用第一个可用的节点组
 	})
 
 	// 添加规则组选择器
+	ruleGroupOutbounds := append([]string{"节点选择"}, selectorOutbounds...)
 	outbounds = append(outbounds, OutboundConfig{
-		Type: "selector",
-		Tag:  "🎬 流媒体",
-		Outbounds: []string{
-			"节点选择",
-			"全部 🌏",
-			"新加坡 🇸🇬",
-			"全部 🌏自动",
-			"新加坡 🇸🇬自动",
-			"direct-out",
-		},
-		Default: "节点选择",
+		Type:      "selector",
+		Tag:       "🎬 流媒体",
+		Outbounds: ruleGroupOutbounds,
+		Default:   "节点选择",
 	})
 
 	outbounds = append(outbounds, OutboundConfig{
-		Type: "selector",
-		Tag:  "💬 社交媒体",
-		Outbounds: []string{
-			"节点选择",
-			"全部 🌏",
-			"新加坡 🇸🇬",
-			"全部 🌏自动",
-			"新加坡 🇸🇬自动",
-			"direct-out",
-		},
-		Default: "节点选择",
+		Type:      "selector",
+		Tag:       "💬 社交媒体",
+		Outbounds: ruleGroupOutbounds,
+		Default:   "节点选择",
 	})
 
 	outbounds = append(outbounds, OutboundConfig{
-		Type: "selector",
-		Tag:  "🔍 谷歌服务",
-		Outbounds: []string{
-			"节点选择",
-			"全部 🌏",
-			"新加坡 🇸🇬",
-			"全部 🌏自动",
-			"新加坡 🇸🇬自动",
-			"direct-out",
-		},
-		Default: "节点选择",
+		Type:      "selector",
+		Tag:       "🔍 谷歌服务",
+		Outbounds: ruleGroupOutbounds,
+		Default:   "节点选择",
 	})
 
 	outbounds = append(outbounds, OutboundConfig{
-		Type: "selector",
-		Tag:  "💻 开发服务",
-		Outbounds: []string{
-			"节点选择",
-			"全部 🌏",
-			"新加坡 🇸🇬",
-			"全部 🌏自动",
-			"新加坡 🇸🇬自动",
-			"direct-out",
-		},
-		Default: "节点选择",
+		Type:      "selector",
+		Tag:       "💻 开发服务",
+		Outbounds: ruleGroupOutbounds,
+		Default:   "节点选择",
 	})
 
 	// 生成规则集配置

@@ -120,133 +120,8 @@ func (m *Manager) getTunInterface() (string, error) {
 
 // setupFirewallRules 设置防火墙规则
 func (m *Manager) setupFirewallRules(mode string) error {
-	// 如果是 TUN 模式，等待接口创建并获取接口名称
-	var tunInterface string
-	if mode == "tun" {
-		// 最多等待 5 秒
-		for i := 0; i < 10; i++ {
-			// 从配置文件获取 TUN 接口名称
-			configData, err := os.ReadFile(m.configPath)
-			if err != nil {
-				return fmt.Errorf("read config file: %v", err)
-			}
-
-			var config struct {
-				Inbounds []struct {
-					Type          string `json:"type"`
-					InterfaceName string `json:"interface_name"`
-				} `json:"inbounds"`
-			}
-			if err := json.Unmarshal(configData, &config); err != nil {
-				return fmt.Errorf("parse config: %v", err)
-			}
-
-			// 查找 TUN 接口名称
-			for _, inbound := range config.Inbounds {
-				if inbound.Type == "tun" {
-					if inbound.InterfaceName != "" {
-						tunInterface = inbound.InterfaceName
-						break
-					}
-				}
-			}
-
-			// 检查接口是否存在
-			if tunInterface != "" {
-				interfaces, err := net.Interfaces()
-				if err != nil {
-					return fmt.Errorf("get interfaces: %v", err)
-				}
-
-				for _, iface := range interfaces {
-					if iface.Name == tunInterface {
-						m.logger.Infof("找到 TUN 接口: %s", tunInterface)
-						goto FOUND
-					}
-				}
-			}
-
-			m.logger.Info("等待 TUN 接口创建...")
-			time.Sleep(time.Millisecond * 500)
-		}
-		return fmt.Errorf("等待 TUN 接口创建超时")
-	}
-
-FOUND:
-	// 配置 systemd-resolved 在所有接口上监听 DNS 请求
-	var resolvedConf string
-	resolvedConf = "/etc/systemd/resolved.conf"
-
-	// 读取现有配置
-	var err error
-	var existingConfig []byte
-	existingConfig, err = os.ReadFile(resolvedConf)
-	if err != nil {
-		m.logger.WithError(err).Warn("Failed to read resolved.conf")
-	}
-
-	// 准备新的配置内容
-	var newConfig string
-	newConfig = string(existingConfig)
-	if !strings.Contains(newConfig, "DNSStubListenerExtra=0.0.0.0") {
-		newConfig = newConfig + "\nDNSStubListenerExtra=0.0.0.0"
-	}
-	if !strings.Contains(newConfig, "DNSStubListenerExtra=::") {
-		newConfig = newConfig + "\nDNSStubListenerExtra=::"
-	}
-
-	// 创建临时文件
-	var tmpfile *os.File
-	tmpfile, err = os.CreateTemp("", "resolved.conf")
-	if err != nil {
-		return fmt.Errorf("create temp file: %v", err)
-	}
-	defer os.Remove(tmpfile.Name())
-
-	// 写入新的配置内容
-	if _, err = tmpfile.WriteString(newConfig); err != nil {
-		return fmt.Errorf("write config: %v", err)
-	}
-	if err = tmpfile.Close(); err != nil {
-		return fmt.Errorf("close temp file: %v", err)
-	}
-
-	// 使用 sudo 复制配置文件并设置权限
-	cpCmd := exec.Command("sudo", "cp", tmpfile.Name(), resolvedConf)
-	if err = cpCmd.Run(); err != nil {
-		return fmt.Errorf("copy config file: %v", err)
-	}
-
-	chmodCmd := exec.Command("sudo", "chmod", "644", resolvedConf)
-	if err = chmodCmd.Run(); err != nil {
-		return fmt.Errorf("chmod config file: %v", err)
-	}
-
-	// 重启 systemd-resolved 服务
-	restartCmd := exec.Command("sudo", "systemctl", "restart", "systemd-resolved")
-	if err = restartCmd.Run(); err != nil {
-		return fmt.Errorf("restart systemd-resolved: %v", err)
-	}
-
-	// 等待服务完全启动
-	time.Sleep(2 * time.Second)
-
-	// 验证 DNS 监听是否正常
-	checkCmd := exec.Command("ss", "-lnup")
-	var output []byte
-	output, err = checkCmd.Output()
-	if err != nil {
-		m.logger.WithError(err).Warn("Failed to check DNS listener status")
-	} else {
-		if strings.Contains(string(output), ":53") {
-			m.logger.Info("DNS listener is active")
-		} else {
-			m.logger.Warn("DNS listener may not be active")
-		}
-	}
-
 	// 获取本地网络信息
-	_, localNet, gateway, err := m.getLocalNetwork()
+	localIP, localNet, gateway, err := m.getLocalNetwork()
 	if err != nil {
 		return fmt.Errorf("get local network: %v", err)
 	}
@@ -262,14 +137,120 @@ FOUND:
 		}).Warn("Failed to flush nftables rules")
 	}
 
-	// 构建 nftables 规则
-	rules := fmt.Sprintf(`
+	var rules string
+	if mode == "redirect" {
+		// Redirect TCP + TProxy UDP 模式的规则
+		rules = fmt.Sprintf(`
+table inet sing-box {
+    chain input {
+        type filter hook input priority filter; policy accept;
+        # 放行本地回环
+        iifname "lo" accept
+        
+        # 放行局域网设备访问本机的流量（目标是本机IP的流量）
+        ip saddr %[1]s ip daddr %[3]s accept
+    }
+
+    chain forward_filter {
+        type filter hook forward priority filter; policy accept;
+        # 放行本机转发的流量
+        ip saddr %[1]s accept
+    }
+
+    chain prerouting_mangle {
+        type filter hook prerouting priority mangle; policy accept;
+        # 放行本地回环
+        iifname "lo" accept
+        
+        # 放行保留地址
+        ip daddr { 0.0.0.0/8, 127.0.0.0/8, 169.254.0.0/16, 224.0.0.0/4, 240.0.0.0/4 } return
+        
+        # 放行访问本机的流量
+        ip daddr %[3]s return
+        
+        # 放行本机访问网关的流量
+        ip daddr %[2]s return
+        
+        # UDP 流量使用 TPROXY（包括 DNS）
+        meta l4proto udp counter tproxy ip to :7893 mark 0x1
+    }
+
+    chain output_mangle {
+        type route hook output priority mangle; policy accept;
+        # 放行本地回环
+        oifname "lo" accept
+        
+        # 放行保留地址
+        ip daddr { 0.0.0.0/8, 127.0.0.0/8, 169.254.0.0/16, 224.0.0.0/4, 240.0.0.0/4 } return
+        
+        # 放行访问本机的流量
+        ip daddr %[3]s return
+        
+        # 放行本机访问网关的流量
+        ip daddr %[2]s return
+        
+        # 标记 UDP 流量
+        meta l4proto udp counter mark 0x1
+    }
+
+    chain prerouting_dnat {
+        type nat hook prerouting priority dstnat; policy accept;
+        # 放行访问本机的流量
+        ip daddr %[3]s return
+        
+        # 放行本机访问网关的流量
+        ip daddr %[2]s return
+        
+        # DNS 查询重定向到 dns-in
+        tcp dport 53 meta l4proto tcp counter redirect to :5353
+        udp dport 53 meta l4proto udp counter redirect to :5353
+        
+        # TCP 流量重定向
+        meta l4proto tcp counter redirect to :7892
+    }
+
+    chain postrouting_snat {
+        type nat hook postrouting priority srcnat; policy accept;
+        # 对其他设备的流量进行 MASQUERADE
+        counter ip saddr %[1]s ip daddr != %[2]s masquerade
+    }
+}`, localNet, gateway, localIP)
+
+		// 开启 IP 转发和 TProxy 支持
+		if err := m.execCommand("echo 1 > /proc/sys/net/ipv4/ip_forward"); err != nil {
+			return fmt.Errorf("enable ip forward: %w", err)
+		}
+
+		if err := m.execCommand("echo 1 > /proc/sys/net/ipv4/ip_nonlocal_bind"); err != nil {
+			return fmt.Errorf("enable ip nonlocal bind: %w", err)
+		}
+
+		// 设置策略路由
+		if err := m.execCommand("ip rule del fwmark 0x1 table 100 2>/dev/null || true"); err != nil {
+			m.logger.WithError(err).Warn("Failed to delete existing ip rule")
+		}
+
+		if err := m.execCommand("ip route del local 0.0.0.0/0 dev lo table 100 2>/dev/null || true"); err != nil {
+			m.logger.WithError(err).Warn("Failed to delete existing ip route")
+		}
+
+		if err := m.execCommand("ip rule add fwmark 0x1 lookup 100"); err != nil {
+			return fmt.Errorf("add ip rule: %w", err)
+		}
+
+		if err := m.execCommand("ip route add local 0.0.0.0/0 dev lo table 100"); err != nil {
+			return fmt.Errorf("add ip route: %w", err)
+		}
+	} else if mode == "tun" {
+		// TUN 模式的规则
+		rules = fmt.Sprintf(`
 table ip nat {
     chain postrouting {
         type nat hook postrouting priority 100; policy accept;
-        ip saddr %s ip saddr != %s oif "%s" masquerade
+        counter ip saddr %[1]s ip daddr != %[2]s oifname "tun0" masquerade
     }
-}`, localNet, gateway, tunInterface)
+}`, localNet, gateway)
+	}
 
 	// 写入临时文件
 	var nftfile *os.File
@@ -299,21 +280,18 @@ table ip nat {
 		return fmt.Errorf("apply nftables rules: %v, output: %s", err, output)
 	}
 
-	// 验证规则是否生效
-	listCmd := exec.Command("nft", "list", "ruleset")
-	var listOutput bytes.Buffer
-	listCmd.Stdout = &listOutput
-	if err = listCmd.Run(); err != nil {
-		return fmt.Errorf("verify rules: %v", err)
-	}
+	m.logger.Info("防火墙规则设置成功")
+	return nil
+}
 
-	// 检查输出中是否包含我们设置的规则
-	if !strings.Contains(listOutput.String(), fmt.Sprintf("ip saddr %s", localNet)) ||
-		!strings.Contains(listOutput.String(), fmt.Sprintf("oif \"%s\"", tunInterface)) {
-		return fmt.Errorf("rules verification failed: rules not found in output")
+// execCommand 执行命令
+func (m *Manager) execCommand(command string) error {
+	cmd := exec.Command("sh", "-c", command)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s: %v (%s)", command, err, stderr.String())
 	}
-
-	m.logger.Info("防火墙规则设置成功并已验证生效")
 	return nil
 }
 

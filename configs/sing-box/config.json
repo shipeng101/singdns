@@ -19,7 +19,6 @@
         "address": "https://dns.google/dns-query",
         "address_resolver": "alidns",
         "strategy": "ipv4_only",
-        "detour": "节点选择",
         "client_subnet": "39.85.255.110"
       }
     ],
@@ -61,9 +60,16 @@
       "stack": "system",
       "sniff": true,
       "sniff_override_destination": true,
-      "domain_strategy": "ipv4_only",
-      "endpoint_independent_nat": true,
-      "udp_timeout": 300
+      "domain_strategy": "ipv4_only"
+    },
+    {
+      "type": "mixed",
+      "tag": "mixed-in",
+      "listen": "::",
+      "listen_port": 7890,
+      "sniff": true,
+      "sniff_override_destination": true,
+      "domain_strategy": "ipv4_only"
     }
   ],
   "outbounds": [
@@ -224,33 +230,17 @@
       {
         "type": "logical",
         "mode": "or",
-        "outbound": "节点选择",
+        "outbound": "dns-out",
         "rules": [
           {
-            "protocol": [
-              "dns"
-            ],
-            "rule_set": [
-              "geosite-cn"
-            ],
-            "outbound": "direct-out"
-          },
-          {
             "port": 53,
-            "rule_set": [
-              "geosite-cn"
-            ],
-            "outbound": "direct-out"
+            "outbound": ""
           },
           {
             "protocol": [
               "dns"
             ],
-            "outbound": "节点选择"
-          },
-          {
-            "port": 53,
-            "outbound": "节点选择"
+            "outbound": ""
           }
         ]
       },
@@ -544,7 +534,8 @@
         "format": "binary",
         "path": "./configs/sing-box/rules/geoip-cloudflare.srs"
       }
-    ]
+    ],
+    "override_android_vpn": true
   },
   "experimental": {
     "clash_api": {

@@ -123,8 +123,7 @@ jobs:
         run: |
           mkdir -p release/singdns
           # 创建目录结构
-          mkdir -p release/singdns/bin/web/metacubexd
-          mkdir -p release/singdns/bin/web/yacd
+          mkdir -p release/singdns/bin/web
           mkdir -p release/singdns/web
           mkdir -p release/singdns/configs/sing-box/rules
           # 复制主程序
@@ -132,8 +131,7 @@ jobs:
           # 复制 sing-box 到 bin 目录
           cp sing-box release/singdns/bin/
           # 复制面板到 bin/web 目录
-          cp -r bin/web/metacubexd/* release/singdns/bin/web/metacubexd/
-          cp -r bin/web/yacd/* release/singdns/bin/web/yacd/
+          cp -r bin/web/* release/singdns/bin/web/
           # 复制前端构建文件到 web 目录
           cp -r web/build/* release/singdns/web/
           # 复制配置文件和规则文件
@@ -220,8 +218,7 @@ jobs:
         run: |
           mkdir -p release/singdns
           # 创建目录结构
-          mkdir -p release/singdns/bin/web/metacubexd
-          mkdir -p release/singdns/bin/web/yacd
+          mkdir -p release/singdns/bin/web
           mkdir -p release/singdns/web
           mkdir -p release/singdns/configs/sing-box/rules
           # 复制主程序
@@ -229,8 +226,7 @@ jobs:
           # 复制 sing-box 到 bin 目录
           cp sing-box release/singdns/bin/
           # 复制面板到 bin/web 目录
-          cp -r bin/web/metacubexd/* release/singdns/bin/web/metacubexd/
-          cp -r bin/web/yacd/* release/singdns/bin/web/yacd/
+          cp -r bin/web/* release/singdns/bin/web/
           # 复制前端构建文件到 web 目录
           cp -r web/build/* release/singdns/web/
           # 复制配置文件和规则文件
@@ -254,26 +250,25 @@ jobs:
           path: release/singdns-alpine-amd64.tar.gz
           
   create-release:
-    needs: [build-backend-linux, build-backend-alpine]
     runs-on: ubuntu-latest
+    needs: [build-backend-linux, build-backend-alpine]
     
     steps:
       - name: 下载 Linux 构建产物
         uses: actions/download-artifact@v3
         with:
           name: singdns-linux
-          path: release
           
       - name: 下载 Alpine 构建产物
         uses: actions/download-artifact@v3
         with:
           name: singdns-alpine
-          path: release
           
       - name: 创建 Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            release/singdns-linux-amd64.tar.gz
-            release/singdns-alpine-amd64.tar.gz
-          token: ${{ secrets.GITHUB_TOKEN }}
+            singdns-linux-amd64.tar.gz
+            singdns-alpine-amd64.tar.gz
+          draft: false
+          prerelease: false

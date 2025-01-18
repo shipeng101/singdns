@@ -82,21 +82,20 @@ type EDNSConfig struct {
 
 // InboundConfig 入站配置
 type InboundConfig struct {
-	Type                     string          `json:"type,omitempty"`
-	Tag                      string          `json:"tag,omitempty"`
-	InterfaceName            string          `json:"interface_name,omitempty"`
-	Inet4Address             string          `json:"inet4_address,omitempty"`
-	AutoRoute                bool            `json:"auto_route,omitempty"`
-	StrictRoute              bool            `json:"strict_route,omitempty"`
-	Stack                    string          `json:"stack,omitempty"`
-	Sniff                    bool            `json:"sniff,omitempty"`
-	SniffOverrideDestination bool            `json:"sniff_override_destination,omitempty"`
-	DomainStrategy           string          `json:"domain_strategy,omitempty"`
-	Listen                   string          `json:"listen,omitempty"`
-	ListenPort               int             `json:"listen_port,omitempty"`
-	Platform                 *PlatformConfig `json:"platform,omitempty"`
-	EndpointIndependentNat   bool            `json:"endpoint_independent_nat,omitempty"`
-	UDPTimeout               int             `json:"udp_timeout,omitempty"`
+	Type                     string `json:"type"`
+	Tag                      string `json:"tag"`
+	Listen                   string `json:"listen,omitempty"`
+	Listen_Port              int    `json:"listen_port,omitempty"`
+	InterfaceName            string `json:"interface_name,omitempty"`
+	Inet4Address             string `json:"inet4_address,omitempty"`
+	AutoRoute                bool   `json:"auto_route,omitempty"`
+	StrictRoute              bool   `json:"strict_route,omitempty"`
+	Stack                    string `json:"stack,omitempty"`
+	Sniff                    bool   `json:"sniff,omitempty"`
+	SniffOverrideDestination bool   `json:"sniff_override_destination,omitempty"`
+	DomainStrategy           string `json:"domain_strategy,omitempty"`
+	EndpointIndependentNat   bool   `json:"endpoint_independent_nat,omitempty"`
+	UDPTimeout               int    `json:"udp_timeout,omitempty"`
 }
 
 // PlatformConfig 平台特定配置
@@ -343,6 +342,7 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 				Type:                     "redirect",
 				Tag:                      "redirect-in",
 				Listen:                   "::",
+				Listen_Port:              7892,
 				Sniff:                    true,
 				SniffOverrideDestination: true,
 				DomainStrategy:           "ipv4_only",
@@ -351,6 +351,7 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 				Type:                     "tproxy",
 				Tag:                      "tproxy-in",
 				Listen:                   "::",
+				Listen_Port:              7893,
 				Sniff:                    true,
 				SniffOverrideDestination: true,
 				DomainStrategy:           "ipv4_only",
@@ -659,7 +660,6 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 				Tag:             "google",
 				Address:         dnsSettings.SingboxDNS,
 				AddressResolver: "alidns",
-				AddressStrategy: "prefer_ipv4",
 				Strategy:        "ipv4_only",
 				Detour:          "节点选择",
 				ClientSubnet:    dnsSettings.EDNSClientSubnet,
@@ -667,22 +667,20 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 		},
 		Rules: []DNSRule{
 			{
-				RuleSet:      []string{"geosite-cn"},
-				Server:       "alidns",
-				DisableCache: false,
+				RuleSet: []string{"geosite-cn"},
+				Server:  "alidns",
 			},
 			{
-				RuleSet:      []string{"geosite-geolocation-!cn"},
-				Server:       "google",
-				DisableCache: false,
+				RuleSet: []string{"geosite-geolocation-!cn"},
+				Server:  "google",
 			},
 			{
-				Outbound: "direct-out",
 				Server:   "alidns",
+				Outbound: "direct-out",
 			},
 			{
-				Outbound: "节点选择",
 				Server:   "google",
+				Outbound: "节点选择",
 			},
 		},
 		Final:            "alidns",

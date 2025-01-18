@@ -18,7 +18,6 @@
         "tag": "google",
         "address": "https://dns.google/dns-query",
         "address_resolver": "alidns",
-        "address_strategy": "prefer_ipv4",
         "strategy": "ipv4_only",
         "detour": "节点选择",
         "client_subnet": "39.85.255.110"

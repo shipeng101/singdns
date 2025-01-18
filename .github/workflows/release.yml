@@ -86,7 +86,7 @@ jobs:
           
       - name: 下载 sing-box
         run: |
-          SING_BOX_VERSION="1.9.0"
+          SING_BOX_VERSION="1.10.0"
           echo "下载 sing-box 版本: ${SING_BOX_VERSION}"
           wget -O sing-box.tar.gz "https://github.com/SagerNet/sing-box/releases/download/v${SING_BOX_VERSION}/sing-box-${SING_BOX_VERSION}-linux-amd64.tar.gz"
           tar xzf sing-box.tar.gz
@@ -181,7 +181,7 @@ jobs:
           
       - name: 下载 sing-box
         run: |
-          SING_BOX_VERSION="1.9.0"
+          SING_BOX_VERSION="1.10.0"
           echo "下载 sing-box 版本: ${SING_BOX_VERSION}"
           wget -O sing-box.tar.gz "https://github.com/SagerNet/sing-box/releases/download/v${SING_BOX_VERSION}/sing-box-${SING_BOX_VERSION}-linux-amd64.tar.gz"
           tar xzf sing-box.tar.gz

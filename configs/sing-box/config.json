@@ -51,22 +51,19 @@
   },
   "inbounds": [
     {
-      "type": "tun",
-      "tag": "tun-in",
-      "interface_name": "tun0",
-      "inet4_address": "172.19.0.1/30",
-      "auto_route": true,
-      "strict_route": true,
-      "stack": "system",
+      "type": "redirect",
+      "tag": "redirect-in",
+      "listen": "::",
+      "listen_port": 7892,
       "sniff": true,
       "sniff_override_destination": true,
       "domain_strategy": "ipv4_only"
     },
     {
-      "type": "mixed",
-      "tag": "mixed-in",
+      "type": "tproxy",
+      "tag": "tproxy-in",
       "listen": "::",
-      "listen_port": 7890,
+      "listen_port": 7893,
       "sniff": true,
       "sniff_override_destination": true,
       "domain_strategy": "ipv4_only"
@@ -86,40 +83,43 @@
       "tag": "dns-out"
     },
     {
-      "type": "vmess",
-      "tag": "all-自建SG",
-      "server": "8.spf.us.kg",
-      "server_port": 8443,
-      "uuid": "3a194682-585f-423a-87e9-f687d88a5f88",
-      "security": "auto",
-      "tls": {
-        "enabled": true
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/spfnas",
-        "headers": {
-          "Host": "8.spf.us.kg"
-        }
+      "type": "shadowsocks",
+      "tag": "hkg-01",
+      "server": "d78a05b.pixepf.sbs",
+      "server_port": 20001,
+      "method": "aes-128-gcm",
+      "password": "4c1209fd95535300",
+      "udp_over_tcp": false,
+      "multiplex": {
+        "enabled": true,
+        "protocol": "h2mux",
+        "max_connections": 4,
+        "min_streams": 4
       }
     },
     {
-      "type": "vmess",
-      "tag": "sg-自建SG",
-      "server": "8.spf.us.kg",
-      "server_port": 8443,
-      "uuid": "3a194682-585f-423a-87e9-f687d88a5f88",
-      "security": "auto",
-      "tls": {
-        "enabled": true
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/spfnas",
-        "headers": {
-          "Host": "8.spf.us.kg"
-        }
+      "type": "shadowsocks",
+      "tag": "hkg-02",
+      "server": "d78a05b.pixepf.sbs",
+      "server_port": 20002,
+      "method": "aes-128-gcm",
+      "password": "4c1209fd95535300",
+      "udp_over_tcp": false,
+      "multiplex": {
+        "enabled": true,
+        "protocol": "h2mux",
+        "max_connections": 4,
+        "min_streams": 4
       }
+    },
+    {
+      "type": "selector",
+      "tag": "香港 🇭🇰",
+      "outbounds": [
+        "hkg-01",
+        "hkg-02"
+      ],
+      "default": "hkg-01"
     },
     {
       "type": "selector",
@@ -161,14 +161,13 @@
       "type": "selector",
       "tag": "节点选择",
       "outbounds": [
-        "全部 🌏",
-        "新加坡 🇸🇬",
-        "全部 🌏自动",
-        "新加坡 🇸🇬自动",
+        "香港 🇭🇰",
+        "hkg-01",
+        "hkg-02",
         "direct-out",
         "block"
       ],
-      "default": "全部 🌏"
+      "default": "香港 🇭🇰"
     },
     {
       "type": "selector",

@@ -10,9 +10,10 @@ NC='\033[0m'
 # 基本配置
 INSTALL_DIR="/usr/local/singdns"
 BIN_DIR="$INSTALL_DIR/bin"
+PANEL_DIR="$BIN_DIR/web"      # Clash 面板目录
 CONFIG_DIR="$INSTALL_DIR/configs/sing-box"
 RULES_DIR="$CONFIG_DIR/rules"
-WEB_DIR="$INSTALL_DIR/web"
+WEB_DIR="$INSTALL_DIR/web"    # 前端管理界面目录
 DATA_DIR="$INSTALL_DIR/data"
 LOG_DIR="/var/log/singdns"
 REQUIRED_PORTS=("3000")
@@ -103,10 +104,10 @@ copy_files() {
     # 创建必要的目录
     mkdir -p "$INSTALL_DIR" \
              "$BIN_DIR" \
-             "$BIN_DIR/web" \
+             "$PANEL_DIR" \    # Clash 面板目录
              "$CONFIG_DIR" \
              "$RULES_DIR" \
-             "$WEB_DIR" \
+             "$WEB_DIR" \      # 前端管理界面目录
              "$DATA_DIR" \
              "$LOG_DIR"
     
@@ -120,6 +121,7 @@ copy_files() {
     # 设置目录权限
     chmod 755 "$INSTALL_DIR"
     chmod 755 "$BIN_DIR"
+    chmod 755 "$PANEL_DIR"
     chmod 755 "$CONFIG_DIR"
     chmod 755 "$WEB_DIR"
     chmod 755 "$DATA_DIR"

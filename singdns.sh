@@ -1,154 +1,552 @@
 #!/bin/bash
 
-# 颜色定义
+# 设置颜色
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# 基本配置
+# 安装目录
 INSTALL_DIR="/usr/local/singdns"
 BIN_DIR="$INSTALL_DIR/bin"
 CONFIG_DIR="$INSTALL_DIR/configs/sing-box"
 LOG_DIR="/var/log/singdns"
 WEB_DIR="$INSTALL_DIR/web"
+DATA_DIR="$INSTALL_DIR/data"
 
-# 检查是否为 root 用户
+# 检查是否为root用户
 check_root() {
     if [[ $EUID -ne 0 ]]; then
-        echo -e "${RED}错误: 必须使用 root 用户运行此脚本${NC}"
+        echo -e "${RED}错误：请使用root用户运行此脚本${NC}"
         exit 1
+    fi
+}
+
+# 获取本机IP地址
+get_ip() {
+    local ip=""
+    # 尝试多种方法获取IP
+    if command -v ip >/dev/null 2>&1; then
+        ip=$(ip addr | grep 'state UP' -A2 | grep 'inet ' | awk '{print $2}' | cut -f1 -d'/' | head -n 1)
+    elif command -v ifconfig >/dev/null 2>&1; then
+        ip=$(ifconfig | grep 'inet ' | grep -v '127.0.0.1' | awk '{print $2}' | head -n 1)
+    fi
+    
+    if [ -z "$ip" ]; then
+        # 尝试通过网络连接获取
+        ip=$(curl -s ifconfig.me || wget -qO- ifconfig.me)
+    fi
+    
+    echo "$ip"
+}
+
+# 检查服务状态
+check_status() {
+    local status=0
+    
+    # 检查必要目录
+    if [ ! -d "$INSTALL_DIR" ] || [ ! -d "$CONFIG_DIR" ]; then
+        echo -e "${RED}错误：安装目录不完整${NC}"
+        return 1
+    fi
+    
+    # 检查必要文件
+    if [ ! -f "$INSTALL_DIR/singdns" ] || [ ! -f "$BIN_DIR/sing-box" ]; then
+        echo -e "${RED}错误：关键程序文件缺失${NC}"
+        return 1
+    fi
+    
+    # 检查后端 API 服务
+    if pgrep -f "singdns.*:8080" > /dev/null; then
+        echo -e "${GREEN}后端 API 服务正在运行${NC}"
+        local_ip=$(get_ip)
+        if [ -n "$local_ip" ]; then
+            echo -e "${GREEN}后端本机访问: http://localhost:8080${NC}"
+            echo -e "${GREEN}后端远程访问: http://${local_ip}:8080${NC}"
+        else
+            echo -e "${GREEN}后端访问地址: http://<ip>:8080${NC}"
+        fi
+    else
+        echo -e "${RED}后端 API 服务未运行${NC}"
+        status=1
+    fi
+
+    # 检查前端服务
+    if pgrep -f "busybox httpd -f -p 3000" > /dev/null; then
+        echo -e "${GREEN}前端服务正在运行${NC}"
+        local_ip=$(get_ip)
+        if [ -n "$local_ip" ]; then
+            echo -e "${GREEN}前端本机访问: http://localhost:3000${NC}"
+            echo -e "${GREEN}前端远程访问: http://${local_ip}:3000${NC}"
+        else
+            echo -e "${GREEN}前端访问地址: http://<ip>:3000${NC}"
+        fi
+    else
+        echo -e "${RED}前端服务未运行${NC}"
+        status=1
+    fi
+
+    # 检查系统资源
+    check_system_resources
+
+    return $status
+}
+
+# 检查系统资源
+check_system_resources() {
+    echo -e "\n${BLUE}系统资源使用情况：${NC}"
+    
+    # CPU 使用率
+    if command -v top >/dev/null 2>&1; then
+        echo -e "${YELLOW}CPU 使用率：${NC}"
+        top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}' | awk '{print $1"%"}'
+    fi
+    
+    # 内存使用情况
+    if command -v free >/dev/null 2>&1; then
+        echo -e "${YELLOW}内存使用情况：${NC}"
+        free -h | grep "Mem:"
+    fi
+    
+    # 磁盘使用情况
+    echo -e "${YELLOW}磁盘使用情况：${NC}"
+    df -h "$INSTALL_DIR"
+}
+
+# 启动后端服务
+start_backend() {
+    echo -e "${YELLOW}启动后端服务...${NC}"
+    
+    # 检查是否已经运行
+    if pgrep -f "singdns.*:8080" > /dev/null; then
+        echo -e "${YELLOW}后端服务已在运行${NC}"
+        return 0
+    fi
+    
+    # 确保数据目录存在
+    mkdir -p "$DATA_DIR"
+    
+    cd "$INSTALL_DIR" || exit 1
+    nohup ./singdns serve > "$LOG_DIR/backend.log" 2>&1 &
+    
+    # 等待服务启动
+    local count=0
+    while ! pgrep -f "singdns.*:8080" > /dev/null && [ $count -lt 10 ]; do
+        sleep 1
+        count=$((count + 1))
+    done
+    
+    if pgrep -f "singdns.*:8080" > /dev/null; then
+        echo -e "${GREEN}后端服务启动成功${NC}"
+        return 0
+    else
+        echo -e "${RED}后端服务启动失败${NC}"
+        return 1
+    fi
+}
+
+# 启动前端服务
+start_frontend() {
+    echo -e "${YELLOW}启动前端服务...${NC}"
+    
+    # 检查是否已经运行
+    if pgrep -f "busybox httpd -f -p 3000" > /dev/null; then
+        echo -e "${YELLOW}前端服务已在运行${NC}"
+        return 0
+    fi
+    
+    # 检查前端目录
+    if [ ! -d "$WEB_DIR" ]; then
+        echo -e "${RED}错误：前端目录不存在${NC}"
+        return 1
+    fi
+    
+    # 检查 busybox
+    if ! command -v busybox >/dev/null 2>&1; then
+        echo -e "${RED}错误：未找到 busybox${NC}"
+        return 1
+    fi
+    
+    # 启动 busybox httpd
+    cd "$WEB_DIR" || exit 1
+    nohup busybox httpd -f -p 3000 -h "$WEB_DIR" > "$LOG_DIR/frontend.log" 2>&1 &
+    
+    # 等待服务启动
+    local count=0
+    while ! pgrep -f "busybox httpd -f -p 3000" > /dev/null && [ $count -lt 5 ]; do
+        sleep 1
+        count=$((count + 1))
+    done
+    
+    if pgrep -f "busybox httpd -f -p 3000" > /dev/null; then
+        echo -e "${GREEN}前端服务启动成功${NC}"
+        return 0
+    else
+        echo -e "${RED}前端服务启动失败${NC}"
+        return 1
     fi
 }
 
 # 启动服务
 start_service() {
-    echo -e "${BLUE}启动 SingDNS 服务...${NC}"
+    echo -e "${YELLOW}正在启动 SingDNS...${NC}"
     
-    # 检查服务是否已经运行
-    if pgrep -f "singdns.*serve" > /dev/null; then
-        echo -e "${YELLOW}SingDNS 服务已经在运行${NC}"
-        return
-    fi
+    # 创建日志目录
+    mkdir -p "$LOG_DIR"
     
-    # 启动后端服务
-    systemctl start singdns
+    # 启动后端
+    start_backend || {
+        echo -e "${RED}启动失败：后端服务启动出错${NC}"
+        return 1
+    }
     
-    # 启动前端服务
-    cd "$WEB_DIR" || exit 1
-    nohup busybox httpd -f -p 3000 -h "$WEB_DIR" > "$LOG_DIR/frontend.log" 2>&1 &
+    # 启动前端
+    start_frontend || {
+        echo -e "${RED}启动失败：前端服务启动出错${NC}"
+        stop_backend
+        return 1
+    }
     
-    # 检查服务状态
-    sleep 2
-    if pgrep -f "singdns.*serve" > /dev/null; then
-        echo -e "${GREEN}SingDNS 服务已启动${NC}"
-        # 获取本机 IP
-        ip=$(hostname -I | awk '{print $1}')
-        echo -e "${GREEN}管理界面: http://${ip}:3000${NC}"
+    if check_status > /dev/null; then
+        echo -e "${GREEN}SingDNS 启动成功！${NC}"
+        local_ip=$(get_ip)
+        if [ -n "$local_ip" ]; then
+            echo -e "${GREEN}前端本机访问: http://localhost:3000${NC}"
+            echo -e "${GREEN}前端远程访问: http://${local_ip}:3000${NC}"
+            echo -e "${GREEN}后端本机访问: http://localhost:8080${NC}"
+            echo -e "${GREEN}后端远程访问: http://${local_ip}:8080${NC}"
+        else
+            echo -e "${GREEN}前端访问地址: http://<ip>:3000${NC}"
+            echo -e "${GREEN}后端访问地址: http://<ip>:8080${NC}"
+        fi
     else
-        echo -e "${RED}SingDNS 服务启动失败${NC}"
+        echo -e "${RED}SingDNS 启动失败，请查看日志${NC}"
+        echo -e "${YELLOW}使用 'singdns logs' 查看详细日志${NC}"
+        stop_service
+    fi
+}
+
+# 停止后端服务
+stop_backend() {
+    local pid
+    pid=$(pgrep -f "singdns.*:8080")
+    if [ -n "$pid" ]; then
+        kill "$pid"
+        sleep 1
+        if kill -0 "$pid" 2>/dev/null; then
+            kill -9 "$pid"
+        fi
+    fi
+}
+
+# 停止前端服务
+stop_frontend() {
+    local pid
+    pid=$(pgrep -f "busybox httpd -f -p 3000")
+    if [ -n "$pid" ]; then
+        kill "$pid"
+        sleep 1
+        if kill -0 "$pid" 2>/dev/null; then
+            kill -9 "$pid"
+        fi
     fi
 }
 
 # 停止服务
 stop_service() {
-    echo -e "${BLUE}停止 SingDNS 服务...${NC}"
+    echo -e "${YELLOW}正在停止 SingDNS...${NC}"
     
-    # 停止后端服务
-    systemctl stop singdns
+    # 停止后端
+    stop_backend
     
-    # 停止前端服务
-    pkill -f "busybox httpd -f -p 3000" || true
+    # 停止前端
+    stop_frontend
     
-    # 检查服务是否已停止
-    if pgrep -f "singdns.*serve" > /dev/null; then
-        echo -e "${RED}SingDNS 服务停止失败${NC}"
-    else
+    sleep 1
+    
+    if ! check_status > /dev/null; then
         echo -e "${GREEN}SingDNS 服务已停止${NC}"
-    fi
-}
-
-# 重启服务
-restart_service() {
-    echo -e "${BLUE}重启 SingDNS 服务...${NC}"
-    stop_service
-    sleep 2
-    start_service
-}
-
-# 检查服务状态
-check_status() {
-    echo -e "${BLUE}检查 SingDNS 服务状态...${NC}"
-    
-    # 检查服务进程
-    local backend_running=false
-    local frontend_running=false
-    
-    if pgrep -f "singdns.*serve" > /dev/null; then
-        backend_running=true
-    fi
-    
-    if pgrep -f "busybox httpd -f -p 3000" > /dev/null; then
-        frontend_running=true
-    fi
-    
-    if [ "$backend_running" = true ] && [ "$frontend_running" = true ]; then
-        echo -e "${GREEN}SingDNS 服务正在运行${NC}"
-        # 获取本机 IP
-        ip=$(hostname -I | awk '{print $1}')
-        echo -e "${GREEN}管理界面: http://${ip}:3000${NC}"
-        
-        # 检查端口状态
-        echo -e "\n${YELLOW}管理界面端口 (3000)：${NC}"
-        netstat -tunlp | grep ":3000 "
     else
-        [ "$backend_running" = false ] && echo -e "${RED}后端服务未运行${NC}"
-        [ "$frontend_running" = false ] && echo -e "${RED}前端服务未运行${NC}"
+        echo -e "${RED}SingDNS 服务停止失败${NC}"
     fi
 }
 
-# 显示帮助信息
-show_help() {
-    echo -e "${BLUE}SingDNS 管理脚本使用说明${NC}"
-    echo -e "用法: singdns <命令>"
-    echo -e "\n命令列表:"
-    echo -e "  start    启动服务"
-    echo -e "  stop     停止服务"
-    echo -e "  restart  重启服务"
-    echo -e "  status   查看服务状态"
-    echo -e "  help     显示帮助信息"
+# 查看日志
+view_logs() {
+    local log_file
+    local lines=50
+    
+    case "$1" in
+        "frontend")
+            log_file="$LOG_DIR/frontend.log"
+            ;;
+        "backend")
+            log_file="$LOG_DIR/backend.log"
+            ;;
+        *)
+            echo -e "${YELLOW}=== 前端日志 ===${NC}"
+            if [ -f "$LOG_DIR/frontend.log" ]; then
+                tail -n 20 "$LOG_DIR/frontend.log"
+            else
+                echo -e "${RED}前端日志文件不存在${NC}"
+            fi
+            echo -e "\n${YELLOW}=== 后端日志 ===${NC}"
+            if [ -f "$LOG_DIR/backend.log" ]; then
+                tail -n 20 "$LOG_DIR/backend.log"
+            else
+                echo -e "${RED}后端日志文件不存在${NC}"
+            fi
+            return
+            ;;
+    esac
+    
+    if [ -f "$log_file" ]; then
+        if [ "$2" = "follow" ]; then
+            tail -f "$log_file"
+        else
+            if [ -n "$2" ] && [[ "$2" =~ ^[0-9]+$ ]]; then
+                lines="$2"
+            fi
+            tail -n "$lines" "$log_file"
+        fi
+    else
+        echo -e "${RED}日志文件不存在：$log_file${NC}"
+    fi
 }
 
-# 主函数
-main() {
-    # 检查是否为 root 用户
-    check_root
+# 查看端口占用
+check_ports() {
+    echo -e "${BLUE}=== 端口占用情况 ===${NC}"
     
-    # 处理命令行参数
-    case "$1" in
+    # 检查端口是否被占用的函数
+    check_port() {
+        local port=$1
+        local name=$2
+        echo -e "${YELLOW}${name} (${port})：${NC}"
+        if command -v lsof >/dev/null 2>&1; then
+            lsof -i ":$port" || echo "端口未被占用"
+        elif command -v netstat >/dev/null 2>&1; then
+            netstat -tunlp | grep ":$port " || echo "端口未被占用"
+        else
+            echo "无法检查端口状态（需要 lsof 或 netstat）"
+        fi
+    }
+    
+    check_port 3000 "前端端口"
+    echo
+    check_port 8080 "后端 API 端口"
+    
+    echo -e "\n${YELLOW}所有 SingDNS 相关进程：${NC}"
+    ps aux | grep -E "singdns|busybox httpd" | grep -v grep || echo "没有相关进程运行"
+}
+
+# 备份配置
+backup_config() {
+    local backup_dir="$INSTALL_DIR/backups"
+    local backup_file="singdns_backup_$(date +%Y%m%d_%H%M%S).tar.gz"
+    
+    echo -e "${YELLOW}开始备份配置...${NC}"
+    
+    # 创建备份目录
+    mkdir -p "$backup_dir"
+    
+    # 创建临时目录
+    local temp_dir="/tmp/singdns_backup_temp"
+    mkdir -p "$temp_dir"
+    
+    # 复制配置文件
+    cp -r "$CONFIG_DIR" "$temp_dir/"
+    [ -d "$DATA_DIR" ] && cp -r "$DATA_DIR" "$temp_dir/"
+    
+    # 创建备份文件
+    tar -czf "$backup_dir/$backup_file" -C "$temp_dir" .
+    
+    # 清理临时目录
+    rm -rf "$temp_dir"
+    
+    if [ -f "$backup_dir/$backup_file" ]; then
+        echo -e "${GREEN}备份成功：$backup_dir/$backup_file${NC}"
+        echo -e "${YELLOW}备份文件大小：$(du -h "$backup_dir/$backup_file" | cut -f1)${NC}"
+    else
+        echo -e "${RED}备份失败${NC}"
+        return 1
+    fi
+}
+
+# 恢复配置
+restore_config() {
+    local backup_dir="$INSTALL_DIR/backups"
+    
+    if [ ! -d "$backup_dir" ]; then
+        echo -e "${RED}错误：备份目录不存在${NC}"
+        return 1
+    fi
+    
+    # 列出所有备份文件
+    echo -e "${YELLOW}可用的备份文件：${NC}"
+    local backup_files=("$backup_dir"/*.tar.gz)
+    if [ ${#backup_files[@]} -eq 0 ]; then
+        echo -e "${RED}没有找到备份文件${NC}"
+        return 1
+    fi
+    
+    local i=1
+    for file in "${backup_files[@]}"; do
+        echo "$i) $(basename "$file") ($(du -h "$file" | cut -f1))"
+        i=$((i + 1))
+    done
+    
+    echo
+    read -p "请选择要恢复的备份文件编号 [1-${#backup_files[@]}]: " choice
+    
+    if [[ ! "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt ${#backup_files[@]} ]; then
+        echo -e "${RED}无效的选择${NC}"
+        return 1
+    fi
+    
+    local selected_file="${backup_files[$((choice-1))]}"
+    
+    echo -e "${YELLOW}正在恢复配置...${NC}"
+    
+    # 停止服务
+    stop_service
+    
+    # 创建临时目录
+    local temp_dir="/tmp/singdns_restore_temp"
+    mkdir -p "$temp_dir"
+    
+    # 解压备份文件
+    tar -xzf "$selected_file" -C "$temp_dir"
+    
+    # 恢复配置文件
+    if [ -d "$temp_dir/sing-box" ]; then
+        rm -rf "$CONFIG_DIR"
+        mv "$temp_dir/sing-box" "$CONFIG_DIR"
+    fi
+    
+    if [ -d "$temp_dir/data" ]; then
+        rm -rf "$DATA_DIR"
+        mv "$temp_dir/data" "$DATA_DIR"
+    fi
+    
+    # 清理临时目录
+    rm -rf "$temp_dir"
+    
+    echo -e "${GREEN}配置恢复完成${NC}"
+    echo -e "${YELLOW}请使用 'singdns start' 重新启动服务${NC}"
+}
+
+# 显示菜单
+show_menu() {
+    echo -e "${BLUE}=== SingDNS 管理面板 ===${NC}"
+    echo "1. 启动服务"
+    echo "2. 停止服务"
+    echo "3. 查看状态"
+    echo "4. 查看前端日志"
+    echo "5. 查看后端日志"
+    echo "6. 查看端口"
+    echo "7. 备份配置"
+    echo "8. 恢复配置"
+    echo "0. 退出"
+    echo -e "${BLUE}=====================${NC}"
+}
+
+# 主程序
+main() {
+    mkdir -p "$LOG_DIR"
+    
+    while true; do
+        show_menu
+        read -p "请选择操作 [0-8]: " choice
+        
+        case $choice in
+            1)
+                check_root
+                start_service
+                ;;
+            2)
+                check_root
+                stop_service
+                ;;
+            3)
+                check_status
+                ;;
+            4)
+                view_logs frontend
+                ;;
+            5)
+                view_logs backend
+                ;;
+            6)
+                check_ports
+                ;;
+            7)
+                check_root
+                backup_config
+                ;;
+            8)
+                check_root
+                restore_config
+                ;;
+            0)
+                echo -e "${GREEN}感谢使用 SingDNS 管理面板！${NC}"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}无效的选项，请重新选择${NC}"
+                ;;
+        esac
+        
+        echo
+        read -p "按回车键继续..."
+    done
+}
+
+# 处理命令行参数
+if [ $# -gt 0 ]; then
+    case $1 in
         start)
+            check_root
             start_service
             ;;
         stop)
+            check_root
             stop_service
             ;;
         restart)
-            restart_service
+            check_root
+            stop_service
+            sleep 2
+            start_service
             ;;
         status)
             check_status
             ;;
-        help|--help|-h)
-            show_help
+        logs)
+            if [ "$2" = "frontend" ] || [ "$2" = "backend" ]; then
+                view_logs "$2" "$3"
+            else
+                view_logs
+            fi
+            ;;
+        ports)
+            check_ports
+            ;;
+        backup)
+            check_root
+            backup_config
+            ;;
+        restore)
+            check_root
+            restore_config
             ;;
         *)
-            echo -e "${RED}错误: 无效的命令${NC}"
-            show_help
+            echo -e "${RED}无效的命令${NC}"
+            echo "用法: singdns {start|stop|restart|status|logs|ports|backup|restore}"
             exit 1
             ;;
     esac
-}
-
-# 执行主函数
-main "$@" 
+else
+    main
+fi

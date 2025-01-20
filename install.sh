@@ -74,13 +74,22 @@ install_system_dependencies() {
         # Alpine Linux
         apk update
         apk add --no-cache curl wget git sqlite iptables ip6tables
+        # 确保 nginx 不会被安装
+        apk del nginx >/dev/null 2>&1 || true
     elif command -v apt-get > /dev/null; then
         # Debian/Ubuntu
         apt-get update
+        # 标记 nginx 为不自动安装
+        apt-mark hold nginx nginx-common nginx-core >/dev/null 2>&1 || true
         apt-get install -y curl wget git sqlite3 iptables
+        # 如果 nginx 已安装，则卸载
+        apt-get remove -y nginx nginx-common nginx-core >/dev/null 2>&1 || true
+        apt-get autoremove -y >/dev/null 2>&1 || true
     elif command -v yum > /dev/null; then
         # CentOS/RHEL
         yum install -y curl wget git sqlite iptables
+        # 如果 nginx 已安装，则卸载
+        yum remove -y nginx >/dev/null 2>&1 || true
     else
         echo "${RED}不支持的操作系统${NC}"
         return 1
@@ -88,6 +97,22 @@ install_system_dependencies() {
     
     echo "${GREEN}系统依赖安装完成${NC}"
     return 0
+}
+
+# 清理 nginx 相关文件
+cleanup_nginx() {
+    echo "${YELLOW}清理 nginx 相关文件...${NC}"
+    # 停止 nginx 服务
+    systemctl stop nginx >/dev/null 2>&1 || true
+    systemctl disable nginx >/dev/null 2>&1 || true
+    
+    # 删除 nginx 配置文件和目录
+    rm -rf /etc/nginx
+    rm -rf /var/log/nginx
+    rm -rf /var/cache/nginx
+    rm -rf /run/nginx
+    
+    echo "${GREEN}nginx 相关文件清理完成${NC}"
 }
 
 # 下载安装包
@@ -187,6 +212,9 @@ install() {
     
     # 安装系统依赖
     install_system_dependencies || exit 1
+    
+    # 清理 nginx 相关文件
+    cleanup_nginx
     
     # 下载安装包
     download_package || exit 1

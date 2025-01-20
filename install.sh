@@ -133,8 +133,10 @@ install_singdns() {
         return 1
     fi
     
-    # 复制主程序
+    # 复制主程序并设置权限
     cp singdns "$INSTALL_DIR/"
+    chmod +x "$INSTALL_DIR/singdns"
+    chown root:root "$INSTALL_DIR/singdns"
     
     # 检查并复制 sing-box
     if [ ! -f "bin/sing-box" ]; then
@@ -142,6 +144,8 @@ install_singdns() {
         return 1
     fi
     cp bin/sing-box "$INSTALL_DIR/bin/"
+    chmod +x "$INSTALL_DIR/bin/sing-box"
+    chown root:root "$INSTALL_DIR/bin/sing-box"
     
     # 复制其他文件
     if [ -d "bin/web" ]; then

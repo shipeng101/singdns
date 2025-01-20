@@ -72,109 +72,62 @@ check_status() {
     return $status
 }
 
-# 启动后端服务
-start_backend() {
-    echo -e "${YELLOW}启动后端服务...${NC}"
-    cd $INSTALL_DIR || exit 1
-    
-    # 检查是否已运行
-    if pgrep -f "singdns.*:8080" > /dev/null; then
-        echo -e "${YELLOW}后端服务已在运行${NC}"
-        return 0
+# 启动服务
+start_service() {
+    # 检查是否已经在运行
+    if pgrep -f "singdns.*serve" > /dev/null; then
+        echo -e "${YELLOW}SingDNS 服务已在运行${NC}"
+        return
     fi
-    
+
+    # 创建必要的目录
+    mkdir -p "$CONFIG_DIR"
+    mkdir -p "$LOG_DIR"
+    mkdir -p "$WEB_DIR"
+
     # 启动服务
-    nohup ./singdns serve > $LOG_DIR/backend.log 2>&1 &
-    
+    cd "$INSTALL_DIR" || exit 1
+    nohup "$BIN_DIR/singdns" serve > "$LOG_DIR/singdns.log" 2>&1 &
+
     # 等待服务启动
     local timeout=30
     local counter=0
-    while ! curl -s http://localhost:8080/ping > /dev/null && [ $counter -lt $timeout ]; do
+    while ! curl -s http://localhost:3000 > /dev/null && [ $counter -lt $timeout ]; do
         sleep 1
         ((counter++))
     done
-    
+
     if [ $counter -eq $timeout ]; then
-        echo -e "${RED}后端服务启动超时${NC}"
-        return 1
+        echo -e "${RED}SingDNS 服务启动超时${NC}"
+        exit 1
     fi
-    
-    echo -e "${GREEN}后端服务启动成功${NC}"
-    return 0
-}
 
-# 启动前端服务
-start_frontend() {
-    echo -e "${YELLOW}启动前端服务...${NC}"
-    
-    # 检查 nginx 是否安装
-    if ! command -v nginx &> /dev/null; then
-        echo -e "${YELLOW}安装 nginx...${NC}"
-        if ! check_dependencies; then
-            return 1
-        fi
-    fi
-    
-    # 创建必要的目录
-    mkdir -p /run/nginx
-    
-    # 创建 nginx 配置
-    cat > /etc/nginx/http.d/singdns.conf << EOF
-# 前端服务
-server {
-    listen 3000;
-    server_name localhost;
-    
-    # 前端
-    location / {
-        root $WEB_DIR;
-        index index.html;
-        try_files \$uri \$uri/ /index.html;
-    }
-    
-    # API 代理
-    location /api {
-        proxy_pass http://localhost:8080;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-}
-
-# Clash API 面板配置
-server {
-    listen 9090;
-    server_name localhost;
-    
-    location / {
-        root $BIN_DIR/web;
-        index index.html;
-        try_files \$uri \$uri/ /index.html;
-    }
-}
-EOF
-    
-    # 测试配置
-    if ! nginx -t; then
-        echo -e "${RED}Nginx 配置测试失败${NC}"
-        return 1
-    fi
-    
-    # 启动或重载 nginx
-    if [ -f /run/nginx/nginx.pid ]; then
-        nginx -s reload
+    # 检查服务状态
+    if pgrep -f "singdns.*serve" > /dev/null; then
+        echo -e "${GREEN}SingDNS 服务已启动${NC}"
+        check_status
     else
-        nginx
+        echo -e "${RED}SingDNS 服务启动失败${NC}"
+        exit 1
     fi
-    
-    # 检查是否成功启动
+}
+
+# 停止服务
+stop_service() {
+    if ! pgrep -f "singdns.*serve" > /dev/null; then
+        echo -e "${YELLOW}SingDNS 服务未运行${NC}"
+        return
+    fi
+
+    pkill -f "singdns.*serve"
     sleep 2
-    if ! curl -s http://localhost:3000 > /dev/null; then
-        echo -e "${RED}前端服务启动失败${NC}"
-        return 1
+
+    if ! pgrep -f "singdns.*serve" > /dev/null; then
+        echo -e "${GREEN}SingDNS 服务已停止${NC}"
+    else
+        echo -e "${RED}SingDNS 服务停止失败${NC}"
+        exit 1
     fi
-    
-    echo -e "${GREEN}前端服务启动成功${NC}"
-    return 0
 }
 
 # 配置备份
@@ -235,64 +188,6 @@ restore_config() {
     else
         echo -e "${RED}配置恢复失败${NC}"
         return 1
-    fi
-}
-
-# 启动服务
-start_service() {
-    # 检查是否已经在运行
-    if pgrep -f "singdns.*serve" > /dev/null; then
-        echo -e "${YELLOW}SingDNS 服务已在运行${NC}"
-        return
-    fi
-
-    # 创建必要的目录
-    mkdir -p "$CONFIG_DIR"
-    mkdir -p "$LOG_DIR"
-    mkdir -p "$WEB_DIR"
-
-    # 启动服务
-    cd "$INSTALL_DIR" || exit 1
-    nohup "$BIN_DIR/singdns" serve > "$LOG_DIR/singdns.log" 2>&1 &
-
-    # 等待服务启动
-    local timeout=30
-    local counter=0
-    while ! curl -s http://localhost:3000 > /dev/null && [ $counter -lt $timeout ]; do
-        sleep 1
-        ((counter++))
-    done
-
-    if [ $counter -eq $timeout ]; then
-        echo -e "${RED}SingDNS 服务启动超时${NC}"
-        exit 1
-    fi
-
-    # 检查服务状态
-    if pgrep -f "singdns.*serve" > /dev/null; then
-        echo -e "${GREEN}SingDNS 服务已启动${NC}"
-        check_status
-    else
-        echo -e "${RED}SingDNS 服务启动失败${NC}"
-        exit 1
-    fi
-}
-
-# 停止服务
-stop_service() {
-    if ! pgrep -f "singdns.*serve" > /dev/null; then
-        echo -e "${YELLOW}SingDNS 服务未运行${NC}"
-        return
-    fi
-
-    pkill -f "singdns.*serve"
-    sleep 2
-
-    if ! pgrep -f "singdns.*serve" > /dev/null; then
-        echo -e "${GREEN}SingDNS 服务已停止${NC}"
-    else
-        echo -e "${RED}SingDNS 服务停止失败${NC}"
-        exit 1
     fi
 }
 

@@ -57,13 +57,32 @@ check_status() {
         return 1
     fi
     
+    # 检查配置文件
+    if [ ! -f "$CONFIG_DIR/config.json" ]; then
+        echo -e "${RED}错误：配置文件不存在${NC}"
+        return 1
+    fi
+    
     # 检查后端服务
-    if pgrep -f "singdns" > /dev/null; then
-        echo -e "${GREEN}后端服务正在运行${NC}"
+    local pid
+    pid=$(pgrep -x "singdns")
+    if [ -n "$pid" ]; then
+        echo -e "${GREEN}SingDNS 服务正在运行 (PID: $pid)${NC}"
         # 显示进程信息
-        ps aux | grep "singdns" | grep -v grep
+        ps -p $pid -o pid,ppid,cmd
     else
-        echo -e "${RED}后端服务未运行${NC}"
+        echo -e "${RED}SingDNS 服务未运行${NC}"
+        status=1
+    fi
+    
+    # 检查 sing-box 服务
+    pid=$(pgrep -f "sing-box.*run.*-c")
+    if [ -n "$pid" ]; then
+        echo -e "${GREEN}sing-box 服务正在运行 (PID: $pid)${NC}"
+        # 显示进程信息
+        ps -p $pid -o pid,ppid,cmd
+    else
+        echo -e "${RED}sing-box 服务未运行${NC}"
         status=1
     fi
 
@@ -114,26 +133,25 @@ start_backend() {
     echo -e "${YELLOW}启动后端服务...${NC}"
     
     # 检查是否已经运行
-    if pgrep -f "singdns" > /dev/null; then
-        echo -e "${YELLOW}后端服务已在运行${NC}"
+    local pid
+    pid=$(pgrep -x "singdns")
+    if [ -n "$pid" ]; then
+        echo -e "${YELLOW}后端服务已在运行 (PID: $pid)${NC}"
         return 0
     fi
     
-    # 确保数据目录存在
-    mkdir -p "$DATA_DIR"
-    
     cd "$INSTALL_DIR" || exit 1
-    nohup ./singdns serve > "$LOG_DIR/backend.log" 2>&1 &
+    
+    # 直接启动主程序
+    ./singdns &
     
     # 等待服务启动
-    local count=0
-    while ! pgrep -f "singdns" > /dev/null && [ $count -lt 10 ]; do
-        sleep 1
-        count=$((count + 1))
-    done
+    sleep 2
     
-    if pgrep -f "singdns" > /dev/null; then
-        echo -e "${GREEN}后端服务启动成功${NC}"
+    # 检查是否成功启动
+    if pgrep -x "singdns" > /dev/null; then
+        pid=$(pgrep -x "singdns")
+        echo -e "${GREEN}后端服务启动成功 (PID: $pid)${NC}"
         return 0
     else
         echo -e "${RED}后端服务启动失败${NC}"
@@ -221,13 +239,36 @@ start_service() {
 
 # 停止后端服务
 stop_backend() {
+    # 停止主程序
     local pid
-    pid=$(pgrep -f "singdns")
+    pid=$(pgrep -x "singdns")
     if [ -n "$pid" ]; then
-        kill "$pid"
-        sleep 1
-        if kill -0 "$pid" 2>/dev/null; then
-            kill -9 "$pid"
+        echo -e "${YELLOW}停止 SingDNS 主程序 (PID: $pid)${NC}"
+        kill $pid
+        local count=0
+        while kill -0 $pid 2>/dev/null && [ $count -lt 5 ]; do
+            sleep 1
+            count=$((count + 1))
+        done
+        if kill -0 $pid 2>/dev/null; then
+            echo -e "${YELLOW}强制停止 SingDNS 主程序${NC}"
+            kill -9 $pid 2>/dev/null
+        fi
+    fi
+    
+    # 停止 sing-box
+    pid=$(pgrep -f "sing-box.*run.*-c")
+    if [ -n "$pid" ]; then
+        echo -e "${YELLOW}停止 sing-box 服务 (PID: $pid)${NC}"
+        kill $pid
+        local count=0
+        while kill -0 $pid 2>/dev/null && [ $count -lt 5 ]; do
+            sleep 1
+            count=$((count + 1))
+        done
+        if kill -0 $pid 2>/dev/null; then
+            echo -e "${YELLOW}强制停止 sing-box 服务${NC}"
+            kill -9 $pid 2>/dev/null
         fi
     fi
 }

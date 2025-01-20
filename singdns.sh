@@ -46,31 +46,13 @@ get_ip() {
 
 # 检查依赖
 check_dependencies() {
-    local deps=("nginx" "curl" "wget" "iptables")
-    local missing=()
-    
+    local deps=("curl" "wget" "iptables")
     for dep in "${deps[@]}"; do
-        if ! command -v "$dep" >/dev/null 2>&1; then
-            missing+=("$dep")
+        if ! command -v "$dep" &> /dev/null; then
+            echo -e "${YELLOW}安装 $dep...${NC}"
+            install_package "$dep"
         fi
     done
-    
-    if [ ${#missing[@]} -ne 0 ]; then
-        echo -e "${RED}缺少依赖：${missing[*]}${NC}"
-        echo -e "${YELLOW}正在安装缺失的依赖...${NC}"
-        
-        if command -v apk >/dev/null 2>&1; then
-            apk add --no-cache "${missing[@]}"
-        elif command -v apt-get >/dev/null 2>&1; then
-            apt-get update && apt-get install -y "${missing[@]}"
-        elif command -v yum >/dev/null 2>&1; then
-            yum install -y "${missing[@]}"
-        else
-            echo -e "${RED}无法安装依赖：不支持的系统${NC}"
-            return 1
-        fi
-    fi
-    return 0
 }
 
 # 检查服务状态
@@ -79,25 +61,11 @@ check_status() {
     local ip
     ip=$(get_ip) || ip="<ip>"
     
-    # 检查后端 API 服务
-    if pgrep -f "singdns.*:8080" > /dev/null; then
-        echo -e "${GREEN}后端 API 服务正在运行${NC}"
-        echo -e "${GREEN}后端本机访问: http://localhost:8080${NC}"
-        echo -e "${GREEN}后端远程访问: http://${ip}:8080${NC}"
+    if pgrep -f "singdns.*serve" > /dev/null; then
+        echo -e "${GREEN}SingDNS 服务正在运行${NC}"
+        echo -e "${GREEN}管理界面: http://${ip}:3000${NC}"
     else
-        echo -e "${RED}后端 API 服务未运行${NC}"
-        status=1
-    fi
-
-    # 检查前端服务
-    if pgrep -f "nginx.*master" > /dev/null; then
-        echo -e "${GREEN}前端服务正在运行${NC}"
-        echo -e "${GREEN}前端本机访问: http://localhost:3000${NC}"
-        echo -e "${GREEN}前端远程访问: http://${ip}:3000${NC}"
-        echo -e "${GREEN}面板本机访问: http://localhost:9090${NC}"
-        echo -e "${GREEN}面板远程访问: http://${ip}:9090${NC}"
-    else
-        echo -e "${RED}前端服务未运行${NC}"
+        echo -e "${RED}SingDNS 服务未运行${NC}"
         status=1
     fi
 
@@ -272,122 +240,93 @@ restore_config() {
 
 # 启动服务
 start_service() {
-    echo -e "${YELLOW}正在启动 SingDNS...${NC}"
-    
-    # 检查依赖
-    check_dependencies || exit 1
-    
-    # 开启 IP 转发
-    echo -e "${YELLOW}开启 IP 转发...${NC}"
-    if ! sysctl -w net.ipv4.ip_forward=1 > /dev/null 2>&1; then
-        echo -e "${RED}开启 IP 转发失败${NC}"
-        return 1
+    # 检查是否已经在运行
+    if pgrep -f "singdns.*serve" > /dev/null; then
+        echo -e "${YELLOW}SingDNS 服务已在运行${NC}"
+        return
     fi
-    
-    # 备份当前配置
-    backup_config
-    
+
+    # 创建必要的目录
+    mkdir -p "$CONFIG_DIR"
+    mkdir -p "$LOG_DIR"
+    mkdir -p "$WEB_DIR"
+
     # 启动服务
-    start_backend || return 1
-    start_frontend || return 1
-    
+    cd "$INSTALL_DIR" || exit 1
+    nohup "$BIN_DIR/singdns" serve > "$LOG_DIR/singdns.log" 2>&1 &
+
+    # 等待服务启动
+    local timeout=30
+    local counter=0
+    while ! curl -s http://localhost:3000 > /dev/null && [ $counter -lt $timeout ]; do
+        sleep 1
+        ((counter++))
+    done
+
+    if [ $counter -eq $timeout ]; then
+        echo -e "${RED}SingDNS 服务启动超时${NC}"
+        exit 1
+    fi
+
     # 检查服务状态
-    if check_status > /dev/null; then
-        echo -e "${GREEN}SingDNS 启动成功！${NC}"
+    if pgrep -f "singdns.*serve" > /dev/null; then
+        echo -e "${GREEN}SingDNS 服务已启动${NC}"
         check_status
     else
-        echo -e "${RED}SingDNS 启动失败${NC}"
-        return 1
+        echo -e "${RED}SingDNS 服务启动失败${NC}"
+        exit 1
     fi
 }
 
 # 停止服务
 stop_service() {
-    echo -e "${YELLOW}正在停止 SingDNS...${NC}"
-    
-    # 停止后端
-    if pgrep -f "singdns" > /dev/null; then
-        pkill -f "singdns"
-        sleep 1
-        if pgrep -f "singdns" > /dev/null; then
-            pkill -9 -f "singdns"
-        fi
+    if ! pgrep -f "singdns.*serve" > /dev/null; then
+        echo -e "${YELLOW}SingDNS 服务未运行${NC}"
+        return
     fi
-    
-    # 停止前端
-    if [ -f /run/nginx/nginx.pid ]; then
-        nginx -s stop
-    fi
-    
-    # 清理防火墙规则
-    echo -e "${YELLOW}清理防火墙规则...${NC}"
-    iptables -F
-    iptables -X
-    iptables -t nat -F
-    iptables -t nat -X
-    iptables -t mangle -F
-    iptables -t mangle -X
-    
-    sleep 1
-    
-    if ! check_status > /dev/null; then
+
+    pkill -f "singdns.*serve"
+    sleep 2
+
+    if ! pgrep -f "singdns.*serve" > /dev/null; then
         echo -e "${GREEN}SingDNS 服务已停止${NC}"
-        return 0
     else
         echo -e "${RED}SingDNS 服务停止失败${NC}"
-        return 1
+        exit 1
     fi
-}
-
-# 重启服务
-restart_service() {
-    stop_service
-    sleep 2
-    start_service
 }
 
 # 查看日志
 view_logs() {
-    if [ "$1" = "frontend" ]; then
-        if [ -f "/var/log/nginx/access.log" ]; then
-            tail -f /var/log/nginx/access.log
-        else
-            echo -e "${RED}前端日志文件不存在${NC}"
-        fi
-    elif [ "$1" = "backend" ]; then
-        if [ -f "$LOG_DIR/backend.log" ]; then
-            tail -f $LOG_DIR/backend.log
-        else
-            echo -e "${RED}后端日志文件不存在${NC}"
-        fi
+    if [ -f "$LOG_DIR/singdns.log" ]; then
+        tail -f "$LOG_DIR/singdns.log"
     else
-        echo -e "${YELLOW}=== 前端日志 ===${NC}"
-        if [ -f "/var/log/nginx/access.log" ]; then
-            tail -n 20 /var/log/nginx/access.log
-        else
-            echo -e "${RED}前端日志文件不存在${NC}"
-        fi
-        echo -e "\n${YELLOW}=== 后端日志 ===${NC}"
-        if [ -f "$LOG_DIR/backend.log" ]; then
-            tail -n 20 $LOG_DIR/backend.log
-        else
-            echo -e "${RED}后端日志文件不存在${NC}"
-        fi
+        echo -e "${RED}日志文件不存在${NC}"
     fi
+}
+
+# 查看最近日志
+view_recent_logs() {
+    if [ -f "$LOG_DIR/singdns.log" ]; then
+        tail -n 20 "$LOG_DIR/singdns.log"
+    else
+        echo -e "${RED}日志文件不存在${NC}"
+    fi
+}
+
+# 查看进程状态
+view_process() {
+    ps aux | grep "singdns" | grep -v grep
 }
 
 # 查看端口占用
 check_ports() {
     echo -e "${BLUE}=== 端口占用情况 ===${NC}"
-    echo -e "${YELLOW}前端端口 (3000)：${NC}"
+    echo -e "${YELLOW}管理界面端口 (3000)：${NC}"
     netstat -tunlp | grep ":3000 "
-    echo -e "\n${YELLOW}后端 API 端口 (8080)：${NC}"
-    netstat -tunlp | grep ":8080 "
-    echo -e "\n${YELLOW}面板端口 (9090)：${NC}"
-    netstat -tunlp | grep ":9090 "
     
     echo -e "\n${YELLOW}所有 SingDNS 相关进程：${NC}"
-    ps aux | grep -E "singdns|nginx" | grep -v grep
+    ps aux | grep "singdns" | grep -v grep
 }
 
 # 显示菜单
@@ -395,13 +334,12 @@ show_menu() {
     echo -e "${BLUE}=== SingDNS 管理面板 ===${NC}"
     echo "1. 启动服务"
     echo "2. 停止服务"
-    echo "3. 重启服务"
-    echo "4. 查看状态"
-    echo "5. 查看前端日志"
-    echo "6. 查看后端日志"
-    echo "7. 查看端口占用"
-    echo "8. 备份配置"
-    echo "9. 恢复配置"
+    echo "3. 查看状态"
+    echo "4. 查看日志"
+    echo "5. 查看进程状态"
+    echo "6. 查看端口占用"
+    echo "7. 备份配置"
+    echo "8. 恢复配置"
     echo "0. 退出"
     echo -e "${BLUE}=====================${NC}"
 }
@@ -417,7 +355,7 @@ main() {
     
     while true; do
         show_menu
-        read -p "请选择操作 [0-9]: " choice
+        read -p "请选择操作 [0-8]: " choice
         
         case $choice in
             1)
@@ -427,24 +365,21 @@ main() {
                 stop_service
                 ;;
             3)
-                restart_service
-                ;;
-            4)
                 check_status
                 ;;
+            4)
+                view_logs
+                ;;
             5)
-                view_logs frontend
+                view_process
                 ;;
             6)
-                view_logs backend
-                ;;
-            7)
                 check_ports
                 ;;
-            8)
+            7)
                 backup_config
                 ;;
-            9)
+            8)
                 restore_config
                 ;;
             0)
@@ -472,16 +407,12 @@ if [ $# -gt 0 ]; then
             check_root
             stop_service
             ;;
-        restart)
-            check_root
-            restart_service
-            ;;
         status)
             check_status
             ;;
         logs)
-            if [ "$2" = "frontend" ] || [ "$2" = "backend" ]; then
-                view_logs "$2"
+            if [ "$2" = "recent" ]; then
+                view_recent_logs
             else
                 view_logs
             fi
@@ -495,7 +426,7 @@ if [ $# -gt 0 ]; then
             restore_config
             ;;
         *)
-            echo "用法: singdns {start|stop|restart|status|logs|backup|restore}"
+            echo "用法: singdns {start|stop|status|logs|backup|restore}"
             exit 1
             ;;
     esac

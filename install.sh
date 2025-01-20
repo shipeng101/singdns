@@ -12,7 +12,9 @@ INSTALL_DIR="/usr/local/singdns"
 LOG_DIR="/var/log/singdns"
 TEMP_DIR="/tmp/singdns_temp"
 MIN_DISK_SPACE=1024  # 需要的最小磁盘空间(MB)
-REQUIRED_PORTS="8080 3000 9090"
+REQUIRED_PORTS="3000"
+GITHUB_REPO="shipeng101/singdns"
+LATEST_VERSION="v1.0.7"  # 最新版本号
 
 # 检查是否为root用户
 check_root() {
@@ -71,20 +73,48 @@ install_system_dependencies() {
     if command -v apk > /dev/null; then
         # Alpine Linux
         apk update
-        apk add --no-cache curl wget git sqlite nginx iptables ip6tables
+        apk add --no-cache curl wget git sqlite iptables ip6tables
     elif command -v apt-get > /dev/null; then
         # Debian/Ubuntu
         apt-get update
-        apt-get install -y curl wget git sqlite3 nginx iptables
+        apt-get install -y curl wget git sqlite3 iptables
     elif command -v yum > /dev/null; then
         # CentOS/RHEL
-        yum install -y curl wget git sqlite nginx iptables
+        yum install -y curl wget git sqlite iptables
     else
         echo "${RED}不支持的操作系统${NC}"
         return 1
     fi
     
     echo "${GREEN}系统依赖安装完成${NC}"
+    return 0
+}
+
+# 下载安装包
+download_package() {
+    echo "${BLUE}下载安装包...${NC}"
+    
+    # 创建临时目录
+    mkdir -p "$TEMP_DIR"
+    cd "$TEMP_DIR" || exit 1
+    
+    # 下载最新版本
+    local package_url="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_VERSION}/singdns-linux-amd64.tar.gz"
+    echo "${YELLOW}正在下载: ${package_url}${NC}"
+    
+    if ! wget -O singdns.tar.gz "$package_url"; then
+        echo "${RED}下载失败${NC}"
+        return 1
+    fi
+    
+    # 解压安装包
+    echo "${YELLOW}解压安装包...${NC}"
+    if ! tar -xzf singdns.tar.gz; then
+        echo "${RED}解压失败${NC}"
+        return 1
+    fi
+    
+    echo "${GREEN}安装包下载并解压完成${NC}"
     return 0
 }
 
@@ -113,27 +143,10 @@ create_directories() {
 copy_files() {
     echo "${YELLOW}复制文件...${NC}"
     
-    # 复制主程序
-    cp singdns "$INSTALL_DIR/"
+    cd "$TEMP_DIR/singdns" || exit 1
     
-    # 复制二进制文件和面板
-    cp bin/sing-box "$INSTALL_DIR/bin/"
-    cp -r bin/web/* "$INSTALL_DIR/bin/web/"  # 复制面板文件
-    
-    # 复制前端文件
-    cp -r web/* "$INSTALL_DIR/web/"  # 复制前端文件到根目录的 web
-    
-    # 复制配置文件
-    cp -r configs/* "$INSTALL_DIR/configs/"
-    
-    # 复制管理脚本
-    cp singdns.sh "$INSTALL_DIR/"
-    cp install.sh "$INSTALL_DIR/"
-    
-    # 复制文档
-    cp README.md "$INSTALL_DIR/" || true
-    cp LICENSE "$INSTALL_DIR/" || true
-    cp VERSION "$INSTALL_DIR/" || true
+    # 复制所有文件到安装目录
+    cp -r * "$INSTALL_DIR/"
     
     # 设置权限
     find "$INSTALL_DIR" -type f -exec chmod 644 {} \;
@@ -149,102 +162,92 @@ copy_files() {
     return 0
 }
 
-# 验证安装
-verify_installation() {
-    echo "${BLUE}验证安装...${NC}"
+# 清理临时文件
+cleanup() {
+    echo "${YELLOW}清理临时文件...${NC}"
+    rm -rf "$TEMP_DIR"
+    echo "${GREEN}清理完成${NC}"
+}
+
+# 主安装函数
+install() {
+    echo "${BLUE}开始安装 SingDNS...${NC}"
     
-    # 检查关键文件
-    local required_files=(
-        "$INSTALL_DIR/singdns"
-        "$INSTALL_DIR/bin/sing-box"
-        "$INSTALL_DIR/configs/sing-box/config.json"
-        "$INSTALL_DIR/singdns.sh"
-    )
+    # 检查是否为root用户
+    check_root || exit 1
     
-    for file in "${required_files[@]}"; do
-        if [ ! -f "$file" ]; then
-            echo "${RED}错误：文件不存在 $file${NC}"
-            return 1
-        fi
-    done
+    # 检查磁盘空间
+    check_disk_space || exit 1
     
-    # 验证可执行权限
-    if [ ! -x "$INSTALL_DIR/singdns" ] || [ ! -x "$INSTALL_DIR/bin/sing-box" ]; then
-        echo "${RED}错误：可执行文件权限设置失败${NC}"
-        return 1
-    fi
+    # 检查端口占用
+    check_ports || exit 1
     
-    echo "${GREEN}安装验证完成${NC}"
+    # 检查现有安装
+    check_existing_installation || exit 1
+    
+    # 安装系统依赖
+    install_system_dependencies || exit 1
+    
+    # 下载安装包
+    download_package || exit 1
+    
+    # 创建目录结构
+    create_directories || exit 1
+    
+    # 复制文件
+    copy_files || exit 1
+    
+    # 清理临时文件
+    cleanup
+    
+    echo "${GREEN}SingDNS 安装完成！${NC}"
+    echo "${GREEN}使用 'singdns' 命令管理服务${NC}"
     return 0
 }
 
 # 卸载函数
-uninstall_singdns() {
+uninstall() {
     echo "${YELLOW}开始卸载 SingDNS...${NC}"
     
+    # 检查是否为root用户
+    check_root || exit 1
+    
     # 停止服务
-    if command -v singdns > /dev/null; then
-        singdns stop
-        sleep 2
+    if [ -f "$INSTALL_DIR/singdns.sh" ]; then
+        "$INSTALL_DIR/singdns.sh" stop
     fi
     
-    # 清理防火墙规则
-    iptables -F
-    iptables -X
-    iptables -t nat -F
-    iptables -t nat -X
-    iptables -t mangle -F
-    iptables -t mangle -X
-    
-    # 删除文件
+    # 删除安装目录
     rm -rf "$INSTALL_DIR"
-    rm -f "/usr/local/bin/singdns"
+    
+    # 删除日志目录
     rm -rf "$LOG_DIR"
     
-    echo "${GREEN}SingDNS 已成功卸载${NC}"
+    # 删除符号链接
+    rm -f "/usr/local/bin/singdns"
+    
+    echo "${GREEN}SingDNS 卸载完成！${NC}"
     return 0
 }
 
 # 主函数
 main() {
-    echo "${YELLOW}欢迎使用 SingDNS 安装程序${NC}"
-    echo "请选择操作："
-    echo "1. 安装 SingDNS"
-    echo "2. 卸载 SingDNS"
-    echo "3. 退出"
-    
-    printf "请输入选项 [1-3]: "
-    read choice
-    
-    case $choice in
-        1)
-            check_root || exit 1
-            check_disk_space || exit 1
-            check_ports || exit 1
-            check_existing_installation || exit 1
-            install_system_dependencies || exit 1
-            create_directories || exit 1
-            copy_files || exit 1
-            verify_installation || exit 1
-            
-            echo "${GREEN}SingDNS 安装成功！${NC}"
-            echo "${GREEN}使用 'singdns' 命令来管理 SingDNS${NC}"
-            echo "${YELLOW}提示: 使用 'singdns start' 启动服务${NC}"
-            ;;
-        2)
-            check_root || exit 1
-            uninstall_singdns
-            ;;
-        3)
-            echo "${GREEN}感谢使用！${NC}"
-            exit 0
-            ;;
-        *)
-            echo "${RED}无效的选项${NC}"
-            exit 1
-            ;;
-    esac
+    if [ $# -eq 0 ]; then
+        install
+    else
+        case "$1" in
+            install)
+                install
+                ;;
+            uninstall)
+                uninstall
+                ;;
+            *)
+                echo "用法: $0 {install|uninstall}"
+                exit 1
+                ;;
+        esac
+    fi
 }
 
-# 执行主函数
-main 
+main "$@" 

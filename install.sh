@@ -1,345 +1,254 @@
 #!/bin/bash
 
-# 设置颜色
+# 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# 配置变量
+# 基本配置
 INSTALL_DIR="/usr/local/singdns"
+BIN_DIR="$INSTALL_DIR/bin"
+CONFIG_DIR="$INSTALL_DIR/configs/sing-box"
 LOG_DIR="/var/log/singdns"
-TEMP_DIR="/tmp/singdns_temp"
-MIN_DISK_SPACE=1024  # 需要的最小磁盘空间(MB)
-REQUIRED_PORTS="3000"
+REQUIRED_PORTS=("3000")
 GITHUB_REPO="shipeng101/singdns"
-LATEST_VERSION="v1.0.7"  # 最新版本号
+LATEST_VERSION="v1.0.10"  # 最新版本号
+TEMP_DIR="/tmp/singdns_install"
 
-# 检查是否为root用户
+# 检查是否为 root 用户
 check_root() {
-    if [ "$(id -u)" != "0" ]; then
-        echo "${RED}错误：请使用root用户运行此脚本${NC}"
-        return 1
+    if [[ $EUID -ne 0 ]]; then
+        echo -e "${RED}错误: 必须使用 root 用户运行此脚本${NC}"
+        exit 1
     fi
-    return 0
-}
-
-# 检查磁盘空间
-check_disk_space() {
-    local available_space=$(df -m "$INSTALL_DIR" | awk 'NR==2 {print $4}')
-    if [ "$available_space" -lt "$MIN_DISK_SPACE" ]; then
-        echo "${RED}错误：磁盘空间不足，需要至少 ${MIN_DISK_SPACE}MB${NC}"
-        return 1
-    fi
-    return 0
-}
-
-# 检查端口占用
-check_ports() {
-    for port in $REQUIRED_PORTS; do
-        if netstat -tuln | grep -q ":$port "; then
-            echo "${RED}错误：端口 $port 已被占用${NC}"
-            return 1
-        fi
-    done
-    return 0
-}
-
-# 检查现有安装
-check_existing_installation() {
-    if [ -d "$INSTALL_DIR" ]; then
-        echo "${YELLOW}检测到已存在的安装，是否继续？[y/N]${NC}"
-        read -r response
-        if [[ ! "$response" =~ ^[Yy]$ ]]; then
-            return 1
-        fi
-        # 备份现有配置
-        backup_dir="/tmp/singdns_backup_$(date +%Y%m%d_%H%M%S)"
-        mkdir -p "$backup_dir"
-        if [ -d "$INSTALL_DIR/configs" ]; then
-            cp -r "$INSTALL_DIR/configs" "$backup_dir/"
-            echo "${GREEN}已备份现有配置到 $backup_dir${NC}"
-        fi
-    fi
-    return 0
-}
-
-# 安装系统依赖
-install_system_dependencies() {
-    echo "${BLUE}安装系统依赖...${NC}"
-    
-    # 检查包管理器
-    if command -v apk > /dev/null; then
-        # Alpine Linux
-        apk update
-        apk add --no-cache curl wget git sqlite iptables ip6tables
-        # 确保 nginx 不会被安装
-        apk del nginx >/dev/null 2>&1 || true
-    elif command -v apt-get > /dev/null; then
-        # Debian/Ubuntu
-        apt-get update
-        # 标记 nginx 为不自动安装
-        apt-mark hold nginx nginx-common nginx-core >/dev/null 2>&1 || true
-        apt-get install -y curl wget git sqlite3 iptables
-        # 如果 nginx 已安装，则卸载
-        apt-get remove -y nginx nginx-common nginx-core >/dev/null 2>&1 || true
-        apt-get autoremove -y >/dev/null 2>&1 || true
-    elif command -v yum > /dev/null; then
-        # CentOS/RHEL
-        yum install -y curl wget git sqlite iptables
-        # 如果 nginx 已安装，则卸载
-        yum remove -y nginx >/dev/null 2>&1 || true
-    else
-        echo "${RED}不支持的操作系统${NC}"
-        return 1
-    fi
-    
-    echo "${GREEN}系统依赖安装完成${NC}"
-    return 0
-}
-
-# 清理 nginx 相关文件
-cleanup_nginx() {
-    echo "${YELLOW}清理 nginx 相关文件...${NC}"
-    # 停止 nginx 服务
-    systemctl stop nginx >/dev/null 2>&1 || true
-    systemctl disable nginx >/dev/null 2>&1 || true
-    
-    # 删除 nginx 配置文件和目录
-    rm -rf /etc/nginx
-    rm -rf /var/log/nginx
-    rm -rf /var/cache/nginx
-    rm -rf /run/nginx
-    
-    echo "${GREEN}nginx 相关文件清理完成${NC}"
-}
-
-# 下载安装包
-download_package() {
-    echo "${BLUE}下载安装包...${NC}"
-    
-    # 创建临时目录
-    mkdir -p "$TEMP_DIR"
-    cd "$TEMP_DIR" || exit 1
-    
-    # 下载最新版本
-    local package_url="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_VERSION}/singdns-linux-amd64.tar.gz"
-    echo "${YELLOW}正在下载: ${package_url}${NC}"
-    
-    if ! wget -O singdns.tar.gz "$package_url"; then
-        echo "${RED}下载失败${NC}"
-        return 1
-    fi
-    
-    # 解压安装包
-    echo "${YELLOW}解压安装包...${NC}"
-    if ! tar -xzf singdns.tar.gz; then
-        echo "${RED}解压失败${NC}"
-        return 1
-    fi
-    
-    echo "${GREEN}安装包下载并解压完成${NC}"
-    return 0
-}
-
-# 创建必要的目录结构
-create_directories() {
-    echo "${BLUE}创建目录结构...${NC}"
-    
-    # 创建主要目录
-    mkdir -p "$INSTALL_DIR"/bin
-    mkdir -p "$INSTALL_DIR"/web
-    mkdir -p "$INSTALL_DIR"/configs/sing-box/rules
-    mkdir -p "$INSTALL_DIR"/data
-    mkdir -p "$INSTALL_DIR"/bin/web  # 面板目录
-    mkdir -p "$LOG_DIR"
-    
-    if [ $? -ne 0 ]; then
-        echo "${RED}创建目录失败${NC}"
-        return 1
-    fi
-    
-    echo "${GREEN}目录结构创建完成${NC}"
-    return 0
-}
-
-# 复制文件
-copy_files() {
-    echo "${YELLOW}复制文件...${NC}"
-    
-    cd "$TEMP_DIR/singdns" || exit 1
-    
-    # 复制所有文件到安装目录
-    cp -r * "$INSTALL_DIR/"
-    
-    # 设置权限
-    find "$INSTALL_DIR" -type f -exec chmod 644 {} \;
-    find "$INSTALL_DIR" -type d -exec chmod 755 {} \;
-    chmod +x "$INSTALL_DIR/singdns"
-    chmod +x "$INSTALL_DIR/singdns.sh"
-    chmod +x "$INSTALL_DIR/bin/sing-box"
-    
-    # 创建符号链接
-    ln -sf "$INSTALL_DIR/singdns.sh" "/usr/local/bin/singdns"
-    
-    echo "${GREEN}文件复制完成${NC}"
-    return 0
-}
-
-# 清理临时文件
-cleanup() {
-    echo "${YELLOW}清理临时文件...${NC}"
-    rm -rf "$TEMP_DIR"
-    echo "${GREEN}清理完成${NC}"
-}
-
-# 主安装函数
-install() {
-    echo "${BLUE}开始安装 SingDNS...${NC}"
-    
-    # 检查是否为root用户
-    check_root || exit 1
-    
-    # 检查磁盘空间
-    check_disk_space || exit 1
-    
-    # 检查端口占用
-    check_ports || exit 1
-    
-    # 检查现有安装
-    check_existing_installation || exit 1
-    
-    # 安装系统依赖
-    install_system_dependencies || exit 1
-    
-    # 清理 nginx 相关文件
-    cleanup_nginx
-    
-    # 下载安装包
-    download_package || exit 1
-    
-    # 创建目录结构
-    create_directories || exit 1
-    
-    # 复制文件
-    copy_files || exit 1
-    
-    # 清理临时文件
-    cleanup
-    
-    echo "${GREEN}SingDNS 安装完成！${NC}"
-    echo "${GREEN}使用 'singdns' 命令管理服务${NC}"
-    return 0
-}
-
-# 卸载函数
-uninstall() {
-    echo "${YELLOW}开始卸载 SingDNS...${NC}"
-    
-    # 检查是否为root用户
-    check_root || exit 1
-    
-    # 停止服务
-    if [ -f "$INSTALL_DIR/singdns.sh" ]; then
-        "$INSTALL_DIR/singdns.sh" stop
-    fi
-    
-    # 删除安装目录
-    rm -rf "$INSTALL_DIR"
-    
-    # 删除日志目录
-    rm -rf "$LOG_DIR"
-    
-    # 删除符号链接
-    rm -f "/usr/local/bin/singdns"
-    
-    echo "${GREEN}SingDNS 卸载完成！${NC}"
-    return 0
-}
-
-# 显示菜单
-show_menu() {
-    echo -e "${BLUE}=== SingDNS 安装管理 ===${NC}"
-    echo "1. 安装 SingDNS"
-    echo "2. 卸载 SingDNS"
-    echo "3. 检查系统环境"
-    echo "4. 查看版本信息"
-    echo "0. 退出"
-    echo -e "${BLUE}=====================${NC}"
 }
 
 # 检查系统环境
 check_environment() {
-    echo -e "${BLUE}正在检查系统环境...${NC}"
+    echo -e "${BLUE}检查系统环境...${NC}"
     
     # 检查操作系统
-    echo -e "${YELLOW}操作系统：${NC}"
     if [ -f /etc/os-release ]; then
-        cat /etc/os-release | grep "PRETTY_NAME" | cut -d'"' -f2
+        . /etc/os-release
+        echo -e "操作系统: ${GREEN}$NAME${NC}"
     else
-        echo "未知"
+        echo -e "${RED}无法确定操作系统类型${NC}"
+        exit 1
     fi
     
     # 检查系统架构
-    echo -e "${YELLOW}系统架构：${NC}"
-    uname -m
+    ARCH=$(uname -m)
+    echo -e "系统架构: ${GREEN}$ARCH${NC}"
+    if [[ $ARCH != "x86_64" ]]; then
+        echo -e "${RED}错误: 仅支持 x86_64 架构${NC}"
+        exit 1
+    fi
     
-    # 检查内存
-    echo -e "${YELLOW}内存使用情况：${NC}"
-    free -h
+    # 检查内存使用情况
+    TOTAL_MEM=$(free -m | awk '/^Mem:/{print $2}')
+    FREE_MEM=$(free -m | awk '/^Mem:/{print $4}')
+    echo -e "总内存: ${GREEN}${TOTAL_MEM}MB${NC}"
+    echo -e "可用内存: ${GREEN}${FREE_MEM}MB${NC}"
     
     # 检查磁盘空间
-    echo -e "${YELLOW}磁盘使用情况：${NC}"
-    df -h /
+    DISK_SPACE=$(df -h / | awk 'NR==2 {print $4}')
+    echo -e "可用磁盘空间: ${GREEN}${DISK_SPACE}${NC}"
     
-    # 检查必要的命令
-    echo -e "${YELLOW}必要命令检查：${NC}"
-    local commands=("curl" "wget" "iptables")
-    for cmd in "${commands[@]}"; do
-        if command -v "$cmd" &> /dev/null; then
-            echo -e "$cmd: ${GREEN}已安装${NC}"
-        else
-            echo -e "$cmd: ${RED}未安装${NC}"
+    # 检查必要命令
+    REQUIRED_COMMANDS=("wget" "tar" "systemctl")
+    for cmd in "${REQUIRED_COMMANDS[@]}"; do
+        if ! command -v $cmd &> /dev/null; then
+            echo -e "${RED}错误: 未找到命令 '$cmd'${NC}"
+            exit 1
         fi
     done
     
     # 检查端口占用
-    echo -e "${YELLOW}端口占用检查：${NC}"
-    for port in $REQUIRED_PORTS; do
+    for port in "${REQUIRED_PORTS[@]}"; do
         if netstat -tuln | grep -q ":$port "; then
-            echo -e "端口 $port: ${RED}已被占用${NC}"
-        else
-            echo -e "端口 $port: ${GREEN}可用${NC}"
+            echo -e "${RED}错误: 端口 $port 已被占用${NC}"
+            exit 1
         fi
     done
+    
+    echo -e "${GREEN}系统环境检查通过${NC}"
+}
+
+# 安装系统依赖
+install_dependencies() {
+    echo -e "${BLUE}安装系统依赖...${NC}"
+    
+    if [ -f /etc/alpine-release ]; then
+        apk update
+        apk add --no-cache wget tar
+    elif [ -f /etc/debian_version ]; then
+        apt-get update
+        apt-get install -y wget tar
+    elif [ -f /etc/redhat-release ]; then
+        yum install -y wget tar
+    else
+        echo -e "${RED}不支持的操作系统${NC}"
+        exit 1
+    fi
+    
+    echo -e "${GREEN}系统依赖安装完成${NC}"
+}
+
+# 下载安装包
+download_package() {
+    echo -e "${BLUE}下载安装包...${NC}"
+    
+    # 创建临时目录
+    rm -rf "$TEMP_DIR"
+    mkdir -p "$TEMP_DIR"
+    cd "$TEMP_DIR" || exit 1
+    
+    # 下载安装包
+    PACKAGE_URL="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_VERSION}/singdns-linux-amd64.tar.gz"
+    echo -e "${YELLOW}正在下载: $PACKAGE_URL${NC}"
+    
+    if ! wget --timeout=10 --tries=3 -O singdns.tar.gz "$PACKAGE_URL"; then
+        echo -e "${RED}下载失败，请检查网络连接或版本号是否正确${NC}"
+        exit 1
+    fi
+    
+    # 解压安装包
+    echo -e "${BLUE}解压安装包...${NC}"
+    if ! tar -xzf singdns.tar.gz; then
+        echo -e "${RED}解压失败${NC}"
+        exit 1
+    fi
+    
+    echo -e "${GREEN}安装包下载完成${NC}"
+}
+
+# 复制文件
+copy_files() {
+    echo -e "${BLUE}复制文件...${NC}"
+    
+    # 创建必要的目录
+    mkdir -p "$INSTALL_DIR" "$BIN_DIR" "$CONFIG_DIR" "$LOG_DIR"
+    
+    # 复制文件
+    cd "$TEMP_DIR/singdns" || exit 1
+    cp -r * "$INSTALL_DIR/"
+    
+    # 设置权限
+    chmod +x "$BIN_DIR/singdns"
+    chmod +x "$INSTALL_DIR/singdns.sh"
+    
+    echo -e "${GREEN}文件复制完成${NC}"
+}
+
+# 配置系统服务
+setup_service() {
+    echo -e "${BLUE}配置系统服务...${NC}"
+    
+    # 创建 systemd 服务文件
+    cat > /etc/systemd/system/singdns.service << EOF
+[Unit]
+Description=SingDNS Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=$BIN_DIR/singdns serve
+WorkingDirectory=$INSTALL_DIR
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    # 重新加载 systemd
+    systemctl daemon-reload
+    systemctl enable singdns
+    systemctl start singdns
+    
+    echo -e "${GREEN}系统服务配置完成${NC}"
+}
+
+# 清理临时文件
+cleanup() {
+    echo -e "${YELLOW}清理临时文件...${NC}"
+    rm -rf "$TEMP_DIR"
+    echo -e "${GREEN}临时文件清理完成${NC}"
+}
+
+# 卸载函数
+uninstall() {
+    echo -e "${YELLOW}开始卸载 SingDNS...${NC}"
+    
+    # 停止并禁用服务
+    systemctl stop singdns
+    systemctl disable singdns
+    rm -f /etc/systemd/system/singdns.service
+    systemctl daemon-reload
+    
+    # 删除安装目录
+    rm -rf "$INSTALL_DIR"
+    rm -rf "$LOG_DIR"
+    
+    echo -e "${GREEN}SingDNS 已成功卸载${NC}"
 }
 
 # 显示版本信息
 show_version() {
-    echo -e "${BLUE}=== SingDNS 版本信息 ===${NC}"
-    echo -e "当前版本：${LATEST_VERSION}"
-    echo -e "仓库地址：https://github.com/${GITHUB_REPO}"
-    echo -e "发布时间：$(date +%Y-%m-%d)"
-    echo -e "${BLUE}=====================${NC}"
+    echo -e "${BLUE}SingDNS 版本信息${NC}"
+    echo -e "当前版本: ${GREEN}${LATEST_VERSION}${NC}"
+    echo -e "仓库地址: ${GREEN}https://github.com/${GITHUB_REPO}${NC}"
+    echo -e "发布日期: ${GREEN}2025-01-20${NC}"
+}
+
+# 显示菜单
+show_menu() {
+    echo -e "\n${BLUE}=== SingDNS 安装管理脚本 ===${NC}"
+    echo -e "1. 安装 SingDNS"
+    echo -e "2. 卸载 SingDNS"
+    echo -e "3. 检查系统环境"
+    echo -e "4. 查看版本信息"
+    echo -e "0. 退出脚本"
+    echo -e "${BLUE}========================${NC}"
+    echo -n "请输入选项 [0-4]: "
 }
 
 # 主函数
 main() {
-    # 检查是否为root用户
-    check_root || exit 1
+    # 检查命令行参数
+    if [[ $1 == "install" ]]; then
+        check_root
+        check_environment
+        install_dependencies
+        download_package
+        copy_files
+        setup_service
+        cleanup
+        exit 0
+    elif [[ $1 == "uninstall" ]]; then
+        check_root
+        uninstall
+        exit 0
+    fi
     
+    # 显示菜单
     while true; do
         show_menu
-        read -p "请选择操作 [0-4]: " choice
-        
+        read -r choice
         case $choice in
             1)
-                echo -e "${YELLOW}开始安装 SingDNS...${NC}"
-                install
+                check_root
+                check_environment
+                install_dependencies
+                download_package
+                copy_files
+                setup_service
+                cleanup
                 ;;
             2)
-                echo -e "${YELLOW}开始卸载 SingDNS...${NC}"
+                check_root
                 uninstall
                 ;;
             3)
@@ -353,35 +262,11 @@ main() {
                 exit 0
                 ;;
             *)
-                echo -e "${RED}无效的选项${NC}"
+                echo -e "${RED}无效的选项，请重新选择${NC}"
                 ;;
         esac
-        
-        echo
-        read -p "按回车键继续..."
     done
 }
 
-# 处理命令行参数
-if [ $# -gt 0 ]; then
-    case "$1" in
-        install)
-            check_root && install
-            ;;
-        uninstall)
-            check_root && uninstall
-            ;;
-        check)
-            check_environment
-            ;;
-        version)
-            show_version
-            ;;
-        *)
-            echo "用法: $0 {install|uninstall|check|version}"
-            exit 1
-            ;;
-    esac
-else
-    main
-fi 
+# 执行主函数
+main "$@" 

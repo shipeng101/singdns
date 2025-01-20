@@ -11,8 +11,10 @@ NC='\033[0m'
 INSTALL_DIR="/usr/local/singdns"
 BIN_DIR="$INSTALL_DIR/bin"
 CONFIG_DIR="$INSTALL_DIR/configs/sing-box"
-LOG_DIR="/var/log/singdns"
+RULES_DIR="$CONFIG_DIR/rules"
 WEB_DIR="$INSTALL_DIR/web"
+DATA_DIR="$INSTALL_DIR/data"
+LOG_DIR="/var/log/singdns"
 REQUIRED_PORTS=("3000")
 
 # 检查是否为 root 用户
@@ -99,7 +101,14 @@ copy_files() {
     echo -e "${BLUE}复制文件...${NC}"
     
     # 创建必要的目录
-    mkdir -p "$INSTALL_DIR" "$BIN_DIR" "$CONFIG_DIR" "$LOG_DIR" "$WEB_DIR"
+    mkdir -p "$INSTALL_DIR" \
+             "$BIN_DIR" \
+             "$BIN_DIR/web" \
+             "$CONFIG_DIR" \
+             "$RULES_DIR" \
+             "$WEB_DIR" \
+             "$DATA_DIR" \
+             "$LOG_DIR"
     
     # 设置权限
     chmod +x "$BIN_DIR/singdns"
@@ -107,6 +116,14 @@ copy_files() {
     
     # 创建全局命令链接
     ln -sf "$INSTALL_DIR/singdns.sh" "/usr/local/bin/singdns"
+    
+    # 设置目录权限
+    chmod 755 "$INSTALL_DIR"
+    chmod 755 "$BIN_DIR"
+    chmod 755 "$CONFIG_DIR"
+    chmod 755 "$WEB_DIR"
+    chmod 755 "$DATA_DIR"
+    chmod 755 "$LOG_DIR"
     
     echo -e "${GREEN}文件复制完成${NC}"
 }

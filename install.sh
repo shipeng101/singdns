@@ -258,24 +258,130 @@ uninstall() {
     return 0
 }
 
-# 主函数
-main() {
-    if [ $# -eq 0 ]; then
-        install
-    else
-        case "$1" in
-            install)
-                install
-                ;;
-            uninstall)
-                uninstall
-                ;;
-            *)
-                echo "用法: $0 {install|uninstall}"
-                exit 1
-                ;;
-        esac
-    fi
+# 显示菜单
+show_menu() {
+    echo -e "${BLUE}=== SingDNS 安装管理 ===${NC}"
+    echo "1. 安装 SingDNS"
+    echo "2. 卸载 SingDNS"
+    echo "3. 检查系统环境"
+    echo "4. 查看版本信息"
+    echo "0. 退出"
+    echo -e "${BLUE}=====================${NC}"
 }
 
-main "$@" 
+# 检查系统环境
+check_environment() {
+    echo -e "${BLUE}正在检查系统环境...${NC}"
+    
+    # 检查操作系统
+    echo -e "${YELLOW}操作系统：${NC}"
+    if [ -f /etc/os-release ]; then
+        cat /etc/os-release | grep "PRETTY_NAME" | cut -d'"' -f2
+    else
+        echo "未知"
+    fi
+    
+    # 检查系统架构
+    echo -e "${YELLOW}系统架构：${NC}"
+    uname -m
+    
+    # 检查内存
+    echo -e "${YELLOW}内存使用情况：${NC}"
+    free -h
+    
+    # 检查磁盘空间
+    echo -e "${YELLOW}磁盘使用情况：${NC}"
+    df -h /
+    
+    # 检查必要的命令
+    echo -e "${YELLOW}必要命令检查：${NC}"
+    local commands=("curl" "wget" "iptables")
+    for cmd in "${commands[@]}"; do
+        if command -v "$cmd" &> /dev/null; then
+            echo -e "$cmd: ${GREEN}已安装${NC}"
+        else
+            echo -e "$cmd: ${RED}未安装${NC}"
+        fi
+    done
+    
+    # 检查端口占用
+    echo -e "${YELLOW}端口占用检查：${NC}"
+    for port in $REQUIRED_PORTS; do
+        if netstat -tuln | grep -q ":$port "; then
+            echo -e "端口 $port: ${RED}已被占用${NC}"
+        else
+            echo -e "端口 $port: ${GREEN}可用${NC}"
+        fi
+    done
+}
+
+# 显示版本信息
+show_version() {
+    echo -e "${BLUE}=== SingDNS 版本信息 ===${NC}"
+    echo -e "当前版本：${LATEST_VERSION}"
+    echo -e "仓库地址：https://github.com/${GITHUB_REPO}"
+    echo -e "发布时间：$(date +%Y-%m-%d)"
+    echo -e "${BLUE}=====================${NC}"
+}
+
+# 主函数
+main() {
+    # 检查是否为root用户
+    check_root || exit 1
+    
+    while true; do
+        show_menu
+        read -p "请选择操作 [0-4]: " choice
+        
+        case $choice in
+            1)
+                echo -e "${YELLOW}开始安装 SingDNS...${NC}"
+                install
+                ;;
+            2)
+                echo -e "${YELLOW}开始卸载 SingDNS...${NC}"
+                uninstall
+                ;;
+            3)
+                check_environment
+                ;;
+            4)
+                show_version
+                ;;
+            0)
+                echo -e "${GREEN}感谢使用！${NC}"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}无效的选项${NC}"
+                ;;
+        esac
+        
+        echo
+        read -p "按回车键继续..."
+    done
+}
+
+# 处理命令行参数
+if [ $# -gt 0 ]; then
+    case "$1" in
+        install)
+            check_root && install
+            ;;
+        uninstall)
+            check_root && uninstall
+            ;;
+        check)
+            check_environment
+            ;;
+        version)
+            show_version
+            ;;
+        *)
+            echo "用法: $0 {install|uninstall|check|version}"
+            exit 1
+            ;;
+    esac
+else
+    main
+fi 

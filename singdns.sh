@@ -142,8 +142,8 @@ start_backend() {
     
     cd "$INSTALL_DIR" || exit 1
     
-    # 直接启动主程序
-    ./singdns &
+    # 启动主程序
+    nohup ./singdns </dev/null >>"$LOG_DIR/backend.log" 2>&1 &
     
     # 等待服务启动
     sleep 2

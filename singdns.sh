@@ -57,18 +57,13 @@ check_status() {
         return 1
     fi
     
-    # 检查后端 API 服务
-    if pgrep -f "singdns.*:8080" > /dev/null; then
-        echo -e "${GREEN}后端 API 服务正在运行${NC}"
-        local_ip=$(get_ip)
-        if [ -n "$local_ip" ]; then
-            echo -e "${GREEN}后端本机访问: http://localhost:8080${NC}"
-            echo -e "${GREEN}后端远程访问: http://${local_ip}:8080${NC}"
-        else
-            echo -e "${GREEN}后端访问地址: http://<ip>:8080${NC}"
-        fi
+    # 检查后端服务
+    if pgrep -f "singdns" > /dev/null; then
+        echo -e "${GREEN}后端服务正在运行${NC}"
+        # 显示进程信息
+        ps aux | grep "singdns" | grep -v grep
     else
-        echo -e "${RED}后端 API 服务未运行${NC}"
+        echo -e "${RED}后端服务未运行${NC}"
         status=1
     fi
 
@@ -119,7 +114,7 @@ start_backend() {
     echo -e "${YELLOW}启动后端服务...${NC}"
     
     # 检查是否已经运行
-    if pgrep -f "singdns.*:8080" > /dev/null; then
+    if pgrep -f "singdns" > /dev/null; then
         echo -e "${YELLOW}后端服务已在运行${NC}"
         return 0
     fi
@@ -132,12 +127,12 @@ start_backend() {
     
     # 等待服务启动
     local count=0
-    while ! pgrep -f "singdns.*:8080" > /dev/null && [ $count -lt 10 ]; do
+    while ! pgrep -f "singdns" > /dev/null && [ $count -lt 10 ]; do
         sleep 1
         count=$((count + 1))
     done
     
-    if pgrep -f "singdns.*:8080" > /dev/null; then
+    if pgrep -f "singdns" > /dev/null; then
         echo -e "${GREEN}后端服务启动成功${NC}"
         return 0
     else
@@ -214,11 +209,8 @@ start_service() {
         if [ -n "$local_ip" ]; then
             echo -e "${GREEN}前端本机访问: http://localhost:3000${NC}"
             echo -e "${GREEN}前端远程访问: http://${local_ip}:3000${NC}"
-            echo -e "${GREEN}后端本机访问: http://localhost:8080${NC}"
-            echo -e "${GREEN}后端远程访问: http://${local_ip}:8080${NC}"
         else
             echo -e "${GREEN}前端访问地址: http://<ip>:3000${NC}"
-            echo -e "${GREEN}后端访问地址: http://<ip>:8080${NC}"
         fi
     else
         echo -e "${RED}SingDNS 启动失败，请查看日志${NC}"
@@ -230,7 +222,7 @@ start_service() {
 # 停止后端服务
 stop_backend() {
     local pid
-    pid=$(pgrep -f "singdns.*:8080")
+    pid=$(pgrep -f "singdns")
     if [ -n "$pid" ]; then
         kill "$pid"
         sleep 1

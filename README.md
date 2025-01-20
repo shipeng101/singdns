@@ -45,103 +45,12 @@ singdns/
 └── docs/           # 项目文档
 ```
 
-## API 文档
-
-### 已实现的 API
-
-#### 认证相关
-- POST `/api/auth/login` - 用户登录
-- POST `/api/auth/register` - 用户注册
-- GET `/api/user` - 获取用户信息
-- PUT `/api/user/password` - 修改密码
-
-#### 系统相关
-- GET `/api/system/status` - 获取系统状态
-- GET `/api/system/services` - 获取服务列表
-- POST `/api/system/services/:name/start` - 启动服务
-- POST `/api/system/services/:name/stop` - 停止服务
-- POST `/api/system/services/:name/restart` - 重启服务
-
-#### 节点相关
-- GET `/api/nodes` - 获取节点列表
-- POST `/api/nodes` - 创建节点
-- PUT `/api/nodes/:id` - 更新节点
-- DELETE `/api/nodes/:id` - 删除节点
-
-#### 规则相关
-- GET `/api/rules` - 获取规则列表
-- POST `/api/rules` - 创建规则
-- PUT `/api/rules/:id` - 更新规则
-- DELETE `/api/rules/:id` - 删除规则
-
-#### 订阅相关
-- GET `/api/subscriptions` - 获取订阅列表
-- POST `/api/subscriptions` - 创建订阅
-- PUT `/api/subscriptions/:id` - 更新订阅
-- DELETE `/api/subscriptions/:id` - 删除订阅
-- POST `/api/subscriptions/:id/update` - 更新订阅节点
-
-#### 设置相关
-- GET `/api/settings` - 获取设置
-- PUT `/api/settings` - 更新设置
-
-### 待实现的 API
-
-#### 系统相关
-- GET `/api/system/info` - 获取系统详细信息（CPU、内存、运行时间等）
-
-#### 节点相关
-- GET `/api/nodes/{id}/status` - 获取节点状态
-- POST `/api/nodes/import` - 导入节点
-- POST `/api/nodes/{id}/test` - 测试节点
-
-#### 订阅相关
-- POST `/api/subscriptions/{id}/refresh` - 刷新订阅
-
-#### 流量统计
-- GET `/api/traffic/stats` - 获取流量统计
-- GET `/api/traffic/realtime` - 获取实时流量
-
-#### 节点组管理
-- GET `/api/node-groups` - 获取节点组列表
-- POST `/api/node-groups` - 创建节点组
-- PUT `/api/node-groups/{id}` - 更新节点组
-- DELETE `/api/node-groups/{id}` - 删除节点组
-
-## 开发进度
-
-### 后端进度
-- [x] 基础框架搭建
-- [x] 用户认证系统
-- [x] 节点管理
-- [x] 规则管理
-- [x] 订阅管理
-- [x] 设置管理
-- [ ] 系统监控
-- [ ] 流量统计
-- [ ] 节点组管理
-- [ ] 性能优化
-
-### 前端进度
-- [x] 项目初始化
-- [x] 登录注册页面
-- [x] 仪表盘页面
-- [x] 节点管理页面
-- [x] 规则管理页面
-- [x] 订阅管理页面
-- [x] 设置页面
-- [x] 深色模式
-- [x] 响应式布局
-- [ ] 实时数据更新
-- [ ] 性能优化
-
 ## 安装部署
 
 ### 环境要求
-- Go 1.16+
-- Node.js 14+
-- npm 6+ 或 yarn 1.22+
-- Docker (可选)
+- Linux 系统
+- curl 或 wget（用于下载）
+- iptables（用于流量转发）
 
 ### 快速安装（推荐）
 ```bash
@@ -152,24 +61,10 @@ curl -O https://raw.githubusercontent.com/shipeng101/singdns/main/install.sh
 chmod +x install.sh
 
 # 安装
-sudo ./install.sh install
+sudo ./install.sh
 
 # 卸载
 sudo ./install.sh uninstall
-```
-
-### Docker 部署
-```bash
-# 拉取镜像
-docker pull spf20081/singdns:latest
-
-# 运行容器
-docker run -d \
-  --name singdns \
-  -p 8080:8080 \
-  -p 53:53/udp \
-  -v /path/to/config:/app/configs \
-  spf20081/singdns:latest
 ```
 
 ### 手动部署
@@ -183,84 +78,83 @@ cd singdns
 # 使用安装脚本
 chmod +x install.sh
 ./install.sh
-
-# 或手动编译
-go build -o singdns cmd/main.go
-
-# 运行
-./singdns
 ```
 
-### 前端部署
+### 服务管理
 ```bash
-# 进入前端目录
-cd web
+# 启动服务
+singdns start
 
-# 安装依赖
-npm install
-# 或
-yarn install
+# 停止服务
+singdns stop
 
-# 开发模式运行
-npm start
-# 或
-yarn start
+# 查看状态
+singdns status
 
-# 构建生产版本
-npm run build
-# 或
-yarn build
+# 查看日志
+singdns logs
+
+# 备份配置
+singdns backup
+
+# 恢复配置
+singdns restore
 ```
 
-## CI/CD
+## 访问管理界面
 
-本项目使用 GitHub Actions 进行持续集成和部署，包含以下工作流：
+安装完成后，可以通过以下地址访问管理界面：
 
-### Docker 镜像构建
-- 在每次推送到 main 分支时自动构建 Docker 镜像
-- 自动推送到 Docker Hub
-- 支持多平台构建 (linux/amd64, linux/arm64)
-
-### 发布工作流
-- 在创建新的 tag 时自动触发
-- 构建二进制文件
-- 构建前端资源
-- 创建 GitHub Release
-- 上传构建产物
+```
+http://<服务器IP>:3000
+```
 
 ## 配置说明
 
 ### 配置文件
-配置文件位于 `configs/config.yaml`，包含以下主要配置项：
+配置文件位于 `configs/sing-box/config.json`，包含以下主要配置项：
 
-```yaml
-server:
-  host: 0.0.0.0
-  port: 8080
-  jwt_secret: your-secret-key
-
-database:
-  type: sqlite
-  path: data/singdns.db
-
-dns:
-  listen: 0.0.0.0:53
-  cache_size: 4096
-  cache_ttl: 60
-
-log:
-  level: info
-  file: logs/singdns.log
+```json
+{
+  "dns": {
+    "servers": [
+      {
+        "tag": "google",
+        "address": "8.8.8.8",
+        "detour": "direct"
+      }
+    ],
+    "rules": []
+  },
+  "inbounds": [],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct"
+    }
+  ]
+}
 ```
 
-## 贡献指南
+## 更新日志
 
-1. Fork 本仓库
-2. 创建新的功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 创建 Pull Request
+### v1.0.8
+- 移除 nginx 依赖，使用内置服务提供前端访问
+- 简化服务管理逻辑
+- 优化安装脚本
 
-## 许可证
+### v1.0.7
+- 修复安装脚本问题
+- 更新管理界面显示
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。 
+### v1.0.6
+- 添加自动构建功能
+- 优化项目结构
+
+### v1.0.5
+- 初始版本发布
+- 基础功能实现
+
+## 开源协议
+
+本项目采用 MIT 协议开源，详见 [LICENSE](LICENSE) 文件。 

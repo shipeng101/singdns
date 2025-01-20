@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # 设置颜色
 RED='\033[0;31m'
@@ -12,7 +12,7 @@ INSTALL_DIR="/usr/local/singdns"
 LOG_DIR="/var/log/singdns"
 TEMP_DIR="/tmp/singdns_temp"
 MIN_DISK_SPACE=1024  # 需要的最小磁盘空间(MB)
-REQUIRED_PORTS=("8080" "3000" "9090")
+REQUIRED_PORTS="8080 3000 9090"
 
 # 检查是否为root用户
 check_root() {
@@ -35,7 +35,7 @@ check_disk_space() {
 
 # 检查端口占用
 check_ports() {
-    for port in "${REQUIRED_PORTS[@]}"; do
+    for port in $REQUIRED_PORTS; do
         if netstat -tuln | grep -q ":$port "; then
             echo "${RED}错误：端口 $port 已被占用${NC}"
             return 1

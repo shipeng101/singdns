@@ -12,6 +12,7 @@ INSTALL_DIR="/usr/local/singdns"
 BIN_DIR="$INSTALL_DIR/bin"
 CONFIG_DIR="$INSTALL_DIR/configs/sing-box"
 LOG_DIR="/var/log/singdns"
+WEB_DIR="$INSTALL_DIR/web"
 REQUIRED_PORTS=("3000")
 
 # 检查是否为 root 用户
@@ -54,7 +55,7 @@ check_environment() {
     echo -e "可用磁盘空间: ${GREEN}${DISK_SPACE}${NC}"
     
     # 检查必要命令
-    REQUIRED_COMMANDS=("tar" "systemctl")
+    REQUIRED_COMMANDS=("tar" "systemctl" "busybox")
     for cmd in "${REQUIRED_COMMANDS[@]}"; do
         if ! command -v $cmd &> /dev/null; then
             echo -e "${RED}错误: 未找到命令 '$cmd'${NC}"
@@ -79,12 +80,12 @@ install_dependencies() {
     
     if [ -f /etc/alpine-release ]; then
         apk update
-        apk add --no-cache tar
+        apk add --no-cache tar busybox
     elif [ -f /etc/debian_version ]; then
         apt-get update
-        DEBIAN_FRONTEND=noninteractive apt-get install -y tar
+        DEBIAN_FRONTEND=noninteractive apt-get install -y tar busybox
     elif [ -f /etc/redhat-release ]; then
-        yum install -y tar
+        yum install -y tar busybox
     else
         echo -e "${RED}不支持的操作系统${NC}"
         exit 1
@@ -98,11 +99,14 @@ copy_files() {
     echo -e "${BLUE}复制文件...${NC}"
     
     # 创建必要的目录
-    mkdir -p "$INSTALL_DIR" "$BIN_DIR" "$CONFIG_DIR" "$LOG_DIR"
+    mkdir -p "$INSTALL_DIR" "$BIN_DIR" "$CONFIG_DIR" "$LOG_DIR" "$WEB_DIR"
     
     # 设置权限
     chmod +x "$BIN_DIR/singdns"
     chmod +x "$INSTALL_DIR/singdns.sh"
+    
+    # 创建全局命令链接
+    ln -sf "$INSTALL_DIR/singdns.sh" "/usr/local/bin/singdns"
     
     echo -e "${GREEN}文件复制完成${NC}"
 }
@@ -146,9 +150,13 @@ uninstall() {
     rm -f /etc/systemd/system/singdns.service
     systemctl daemon-reload
     
-    # 删除安装目录
+    # 停止前端服务
+    pkill -f "busybox httpd -f -p 3000" || true
+    
+    # 删除安装目录和命令链接
     rm -rf "$INSTALL_DIR"
     rm -rf "$LOG_DIR"
+    rm -f "/usr/local/bin/singdns"
     
     echo -e "${GREEN}SingDNS 已成功卸载${NC}"
 }
@@ -173,6 +181,8 @@ main() {
         install_dependencies
         copy_files
         setup_service
+        echo -e "\n${GREEN}SingDNS 安装完成！${NC}"
+        echo -e "使用 ${YELLOW}singdns help${NC} 查看使用说明"
         exit 0
     elif [[ $1 == "uninstall" ]]; then
         check_root
@@ -191,6 +201,8 @@ main() {
                 install_dependencies
                 copy_files
                 setup_service
+                echo -e "\n${GREEN}SingDNS 安装完成！${NC}"
+                echo -e "使用 ${YELLOW}singdns help${NC} 查看使用说明"
                 ;;
             2)
                 check_root

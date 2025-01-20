@@ -13,9 +13,6 @@ BIN_DIR="$INSTALL_DIR/bin"
 CONFIG_DIR="$INSTALL_DIR/configs/sing-box"
 LOG_DIR="/var/log/singdns"
 REQUIRED_PORTS=("3000")
-GITHUB_REPO="shipeng101/singdns"
-LATEST_VERSION="v1.0.10"  # 最新版本号
-TEMP_DIR="/tmp/singdns_install"
 
 # 检查是否为 root 用户
 check_root() {
@@ -57,7 +54,7 @@ check_environment() {
     echo -e "可用磁盘空间: ${GREEN}${DISK_SPACE}${NC}"
     
     # 检查必要命令
-    REQUIRED_COMMANDS=("wget" "tar" "systemctl")
+    REQUIRED_COMMANDS=("tar" "systemctl")
     for cmd in "${REQUIRED_COMMANDS[@]}"; do
         if ! command -v $cmd &> /dev/null; then
             echo -e "${RED}错误: 未找到命令 '$cmd'${NC}"
@@ -82,12 +79,12 @@ install_dependencies() {
     
     if [ -f /etc/alpine-release ]; then
         apk update
-        apk add --no-cache wget tar
+        apk add --no-cache tar
     elif [ -f /etc/debian_version ]; then
         apt-get update
-        apt-get install -y wget tar
+        DEBIAN_FRONTEND=noninteractive apt-get install -y tar
     elif [ -f /etc/redhat-release ]; then
-        yum install -y wget tar
+        yum install -y tar
     else
         echo -e "${RED}不支持的操作系统${NC}"
         exit 1
@@ -96,44 +93,12 @@ install_dependencies() {
     echo -e "${GREEN}系统依赖安装完成${NC}"
 }
 
-# 下载安装包
-download_package() {
-    echo -e "${BLUE}下载安装包...${NC}"
-    
-    # 创建临时目录
-    rm -rf "$TEMP_DIR"
-    mkdir -p "$TEMP_DIR"
-    cd "$TEMP_DIR" || exit 1
-    
-    # 下载安装包
-    PACKAGE_URL="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_VERSION}/singdns-linux-amd64.tar.gz"
-    echo -e "${YELLOW}正在下载: $PACKAGE_URL${NC}"
-    
-    if ! wget --timeout=10 --tries=3 -O singdns.tar.gz "$PACKAGE_URL"; then
-        echo -e "${RED}下载失败，请检查网络连接或版本号是否正确${NC}"
-        exit 1
-    fi
-    
-    # 解压安装包
-    echo -e "${BLUE}解压安装包...${NC}"
-    if ! tar -xzf singdns.tar.gz; then
-        echo -e "${RED}解压失败${NC}"
-        exit 1
-    fi
-    
-    echo -e "${GREEN}安装包下载完成${NC}"
-}
-
 # 复制文件
 copy_files() {
     echo -e "${BLUE}复制文件...${NC}"
     
     # 创建必要的目录
     mkdir -p "$INSTALL_DIR" "$BIN_DIR" "$CONFIG_DIR" "$LOG_DIR"
-    
-    # 复制文件
-    cd "$TEMP_DIR/singdns" || exit 1
-    cp -r * "$INSTALL_DIR/"
     
     # 设置权限
     chmod +x "$BIN_DIR/singdns"
@@ -171,13 +136,6 @@ EOF
     echo -e "${GREEN}系统服务配置完成${NC}"
 }
 
-# 清理临时文件
-cleanup() {
-    echo -e "${YELLOW}清理临时文件...${NC}"
-    rm -rf "$TEMP_DIR"
-    echo -e "${GREEN}临时文件清理完成${NC}"
-}
-
 # 卸载函数
 uninstall() {
     echo -e "${YELLOW}开始卸载 SingDNS...${NC}"
@@ -195,24 +153,15 @@ uninstall() {
     echo -e "${GREEN}SingDNS 已成功卸载${NC}"
 }
 
-# 显示版本信息
-show_version() {
-    echo -e "${BLUE}SingDNS 版本信息${NC}"
-    echo -e "当前版本: ${GREEN}${LATEST_VERSION}${NC}"
-    echo -e "仓库地址: ${GREEN}https://github.com/${GITHUB_REPO}${NC}"
-    echo -e "发布日期: ${GREEN}2025-01-20${NC}"
-}
-
 # 显示菜单
 show_menu() {
     echo -e "\n${BLUE}=== SingDNS 安装管理脚本 ===${NC}"
     echo -e "1. 安装 SingDNS"
     echo -e "2. 卸载 SingDNS"
     echo -e "3. 检查系统环境"
-    echo -e "4. 查看版本信息"
     echo -e "0. 退出脚本"
     echo -e "${BLUE}========================${NC}"
-    echo -n "请输入选项 [0-4]: "
+    echo -n "请输入选项 [0-3]: "
 }
 
 # 主函数
@@ -222,10 +171,8 @@ main() {
         check_root
         check_environment
         install_dependencies
-        download_package
         copy_files
         setup_service
-        cleanup
         exit 0
     elif [[ $1 == "uninstall" ]]; then
         check_root
@@ -242,10 +189,8 @@ main() {
                 check_root
                 check_environment
                 install_dependencies
-                download_package
                 copy_files
                 setup_service
-                cleanup
                 ;;
             2)
                 check_root
@@ -253,9 +198,6 @@ main() {
                 ;;
             3)
                 check_environment
-                ;;
-            4)
-                show_version
                 ;;
             0)
                 echo -e "${GREEN}感谢使用！${NC}"

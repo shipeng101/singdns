@@ -12,6 +12,8 @@ INSTALL_DIR="/usr/local/singdns"
 LOG_DIR="/var/log/singdns"
 TEMP_DIR="/tmp/singdns_temp"
 MIN_DISK_SPACE=1024  # 需要的最小磁盘空间(MB)
+GITHUB_API="https://api.github.com/repos/shipeng101/singdns/releases/latest"
+GITHUB_DOWNLOAD="https://github.com/shipeng101/singdns/releases/download"
 
 # 检查是否为root用户
 check_root() {
@@ -19,6 +21,38 @@ check_root() {
         echo "${RED}错误：请使用root用户运行此脚本${NC}"
         return 1
     fi
+    return 0
+}
+
+# 下载最新版本
+download_latest_release() {
+    echo "${BLUE}正在获取最新版本信息...${NC}"
+    
+    # 获取最新版本号
+    VERSION=$(curl -s $GITHUB_API | grep "tag_name" | cut -d'"' -f4)
+    if [ -z "$VERSION" ]; then
+        echo "${RED}获取版本信息失败${NC}"
+        return 1
+    }
+    
+    echo "${BLUE}最新版本: ${VERSION}${NC}"
+    
+    # 创建临时目录
+    mkdir -p "$TEMP_DIR"
+    cd "$TEMP_DIR" || exit 1
+    
+    # 下载最新版本
+    echo "${BLUE}下载安装包...${NC}"
+    DOWNLOAD_URL="${GITHUB_DOWNLOAD}/${VERSION}/singdns-linux-amd64.tar.gz"
+    if ! curl -L -o singdns.tar.gz "$DOWNLOAD_URL"; then
+        echo "${RED}下载失败${NC}"
+        return 1
+    }
+    
+    # 解压
+    echo "${BLUE}解压安装包...${NC}"
+    tar xzf singdns.tar.gz
+    
     return 0
 }
 
@@ -120,61 +154,21 @@ install_singdns() {
     # 检查系统要求
     check_system_requirements || return 1
     
+    # 下载最新版本
+    if ! download_latest_release; then
+        echo "${RED}下载失败${NC}"
+        return 1
+    }
+    
     # 创建必要的目录
-    mkdir -p "$INSTALL_DIR/bin/web"
+    mkdir -p "$INSTALL_DIR/bin/web/yacd"
     mkdir -p "$INSTALL_DIR/web"
     mkdir -p "$INSTALL_DIR/configs/sing-box/rules"
     mkdir -p "$LOG_DIR"
     
     # 复制文件
     echo "${YELLOW}复制文件...${NC}"
-    if [ ! -f "singdns" ]; then
-        echo "${RED}错误：未找到 singdns 主程序${NC}"
-        return 1
-    fi
-    
-    # 复制主程序并设置权限
-    cp singdns "$INSTALL_DIR/"
-    chmod +x "$INSTALL_DIR/singdns"
-    chown root:root "$INSTALL_DIR/singdns"
-    
-    # 检查并复制 sing-box
-    if [ ! -f "bin/sing-box" ]; then
-        echo "${RED}错误：未找到 sing-box 程序${NC}"
-        return 1
-    fi
-    cp bin/sing-box "$INSTALL_DIR/bin/"
-    chmod +x "$INSTALL_DIR/bin/sing-box"
-    chown root:root "$INSTALL_DIR/bin/sing-box"
-    
-    # 复制其他文件
-    if [ -d "bin/web" ]; then
-        cp -r bin/web/* "$INSTALL_DIR/bin/web/"
-    else
-        echo "${YELLOW}警告：未找到 ClashAPI UI 面板文件${NC}"
-    fi
-    
-    if [ -d "web" ]; then
-        cp -r web/* "$INSTALL_DIR/web/"
-    else
-        echo "${YELLOW}警告：未找到前端文件${NC}"
-    fi
-    
-    # 复制配置文件
-    if [ -f "configs/sing-box/config.json" ]; then
-        cp configs/sing-box/config.json "$INSTALL_DIR/configs/sing-box/"
-    else
-        echo "${RED}错误：未找到配置文件${NC}"
-        return 1
-    fi
-    
-    # 复制规则文件
-    cp configs/sing-box/rules/*.srs "$INSTALL_DIR/configs/sing-box/rules/" 2>/dev/null || echo "${YELLOW}警告：未找到规则文件${NC}"
-    
-    # 复制其他文件
-    for file in install.sh singdns.sh README.md LICENSE VERSION; do
-        [ -f "$file" ] && cp "$file" "$INSTALL_DIR/"
-    done
+    cp -r "$TEMP_DIR"/singdns/* "$INSTALL_DIR/"
     
     # 设置权限
     echo "${YELLOW}设置文件权限...${NC}"
@@ -189,6 +183,9 @@ install_singdns() {
     
     # 创建符号链接
     ln -sf "$INSTALL_DIR/singdns.sh" "/usr/local/bin/singdns"
+    
+    # 清理临时文件
+    rm -rf "$TEMP_DIR"
     
     echo "${GREEN}SingDNS 安装完成${NC}"
     return 0
@@ -217,38 +214,29 @@ uninstall_singdns() {
 main() {
     echo "${YELLOW}欢迎使用 SingDNS 安装程序${NC}"
     echo "系统类型: $(detect_os)"
-    echo "请选择操作："
-    echo "1. 安装 SingDNS"
-    echo "2. 卸载 SingDNS"
-    echo "3. 退出"
     
-    printf "请输入选项 [1-3]: "
-    read choice
+    # 检查root权限
+    check_root || exit 1
     
-    case $choice in
-        1)
-            check_root || exit 1
-            install_system_dependencies || exit 1
-            install_singdns || exit 1
-            
-            # 显示安装成功信息
-            echo "${GREEN}SingDNS 安装成功！${NC}"
-            echo "${GREEN}使用 'singdns' 命令来管理 SingDNS${NC}"
-            echo "${YELLOW}提示: 使用 'singdns start' 启动服务${NC}"
-            echo "安装目录: ${INSTALL_DIR}"
-            echo "日志目录: ${LOG_DIR}"
-            ;;
-        2)
-            check_root || exit 1
-            uninstall_singdns
-            ;;
-        3)
-            echo "${GREEN}感谢使用！${NC}"
-            exit 0
-            ;;
-        *)
-            echo "${RED}无效的选项${NC}"
-            exit 1
+    # 安装系统依赖
+    install_system_dependencies || exit 1
+    
+    # 安装SingDNS
+    install_singdns || exit 1
+    
+    # 显示安装成功信息
+    echo "${GREEN}SingDNS 安装成功！${NC}"
+    echo "${GREEN}使用 'singdns' 命令来管理 SingDNS${NC}"
+    echo "${YELLOW}提示: 使用 'singdns start' 启动服务${NC}"
+    echo "安装目录: ${INSTALL_DIR}"
+    echo "日志目录: ${LOG_DIR}"
+    
+    # 询问是否立即启动服务
+    printf "是否立即启动服务？[y/N] "
+    read -r answer
+    case $answer in
+        [Yy]*)
+            singdns start
             ;;
     esac
 }

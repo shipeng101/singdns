@@ -51,8 +51,9 @@ type DNSConfig struct {
 	Rules            []DNSRule         `json:"rules,omitempty"`
 	Final            string            `json:"final,omitempty"`
 	Strategy         string            `json:"strategy,omitempty"`
+	DisableCache     bool              `json:"disable_cache,omitempty"`
+	DisableExpire    bool              `json:"disable_expire,omitempty"`
 	IndependentCache bool              `json:"independent_cache,omitempty"`
-	ReverseMapping   bool              `json:"reverse_mapping,omitempty"`
 }
 
 // DNSServerConfig DNS服务器配置
@@ -68,11 +69,17 @@ type DNSServerConfig struct {
 
 // DNSRule DNS规则配置
 type DNSRule struct {
-	RuleSet      []string `json:"rule_set,omitempty"`
-	Domain       []string `json:"domain,omitempty"`
-	Server       string   `json:"server,omitempty"`
-	Outbound     string   `json:"outbound,omitempty"`
-	DisableCache bool     `json:"disable_cache,omitempty"`
+	RuleSet      string    `json:"rule_set,omitempty"`
+	Domain       []string  `json:"domain,omitempty"`
+	Server       string    `json:"server,omitempty"`
+	Outbound     string    `json:"outbound,omitempty"`
+	DisableCache bool      `json:"disable_cache,omitempty"`
+	Type         string    `json:"type,omitempty"`
+	Mode         string    `json:"mode,omitempty"`
+	Rules        []DNSRule `json:"rules,omitempty"`
+	Invert       bool      `json:"invert,omitempty"`
+	ClashMode    string    `json:"clash_mode,omitempty"`
+	ClientSubnet string    `json:"client_subnet,omitempty"`
 }
 
 // EDNSConfig EDNS配置
@@ -403,6 +410,12 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 	// 根据面板类型生成路径
 	dashboardPath := fmt.Sprintf("bin/web/%s", dashboard.Type)
 
+	// 获取 DNS 设置
+	dnsSettings, err := g.storage.GetDNSSettings()
+	if err != nil {
+		return nil, fmt.Errorf("get dns settings: %w", err)
+	}
+
 	// 生成出站配置
 	var outbounds []OutboundConfig
 
@@ -633,41 +646,56 @@ func (g *SingBoxGenerator) GenerateConfig() ([]byte, error) {
 		Servers: []DNSServerConfig{
 			{
 				Tag:             "alidns",
-				Address:         "https://223.5.5.5/dns-query",
+				Address:         dnsSettings.Domestic,
 				AddressStrategy: "prefer_ipv4",
 				Strategy:        "ipv4_only",
 				Detour:          "direct-out",
 			},
 			{
 				Tag:             "google",
-				Address:         "https://dns.google/dns-query",
+				Address:         dnsSettings.SingboxDNS,
 				AddressResolver: "alidns",
 				Strategy:        "ipv4_only",
-				ClientSubnet:    "39.85.255.110",
 			},
 		},
 		Rules: []DNSRule{
 			{
-				RuleSet: []string{"geosite-cn"},
+				Outbound: "any",
+				Server:   "alidns",
+			},
+			{
+				ClashMode: "direct",
+				Server:    "alidns",
+			},
+			{
+				ClashMode: "global",
+				Server:    "google",
+			},
+			{
+				RuleSet: "geosite-cn",
 				Server:  "alidns",
 			},
 			{
-				RuleSet: []string{"geosite-geolocation-!cn"},
-				Server:  "google",
-			},
-			{
-				Server:   "alidns",
-				Outbound: "direct-out",
-			},
-			{
-				Server:   "google",
-				Outbound: "节点选择",
+				Type: "logical",
+				Mode: "and",
+				Rules: []DNSRule{
+					{
+						RuleSet: "geosite-geolocation-!cn",
+						Invert:  true,
+					},
+					{
+						RuleSet: "geoip-cn",
+					},
+				},
+				Server:       "google",
+				ClientSubnet: dnsSettings.EDNSClientSubnet,
 			},
 		},
-		Final:            "alidns",
 		Strategy:         "ipv4_only",
-		IndependentCache: true,
-		ReverseMapping:   true,
+		DisableCache:     false,
+		DisableExpire:    false,
+		IndependentCache: false,
+		Final:            "google",
 	}
 
 	// 生成完整配置

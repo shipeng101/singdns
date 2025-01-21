@@ -18,52 +18,62 @@
         "tag": "google",
         "address": "https://dns.google/dns-query",
         "address_resolver": "alidns",
-        "strategy": "ipv4_only",
-        "client_subnet": "39.85.255.110"
+        "strategy": "ipv4_only"
       }
     ],
     "rules": [
       {
-        "rule_set": [
-          "geosite-cn"
-        ],
-        "server": "alidns"
-      },
-      {
-        "rule_set": [
-          "geosite-geolocation-!cn"
-        ],
-        "server": "google"
+        "server": "alidns",
+        "outbound": "any"
       },
       {
         "server": "alidns",
-        "outbound": "direct-out"
+        "clash_mode": "direct"
       },
       {
         "server": "google",
-        "outbound": "节点选择"
+        "clash_mode": "global"
+      },
+      {
+        "rule_set": "geosite-cn",
+        "server": "alidns"
+      },
+      {
+        "server": "google",
+        "type": "logical",
+        "mode": "and",
+        "rules": [
+          {
+            "rule_set": "geosite-geolocation-!cn",
+            "invert": true
+          },
+          {
+            "rule_set": "geoip-cn"
+          }
+        ]
       }
     ],
-    "final": "alidns",
-    "strategy": "ipv4_only",
-    "independent_cache": true,
-    "reverse_mapping": true
+    "final": "google",
+    "strategy": "ipv4_only"
   },
   "inbounds": [
     {
-      "type": "redirect",
-      "tag": "redirect-in",
-      "listen": "::",
-      "listen_port": 7892,
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "tun0",
+      "inet4_address": "172.19.0.1/30",
+      "auto_route": true,
+      "strict_route": true,
+      "stack": "system",
       "sniff": true,
       "sniff_override_destination": true,
       "domain_strategy": "ipv4_only"
     },
     {
-      "type": "tproxy",
-      "tag": "tproxy-in",
+      "type": "mixed",
+      "tag": "mixed-in",
       "listen": "::",
-      "listen_port": 7893,
+      "listen_port": 7890,
       "sniff": true,
       "sniff_override_destination": true,
       "domain_strategy": "ipv4_only"
@@ -83,65 +93,2121 @@
       "tag": "dns-out"
     },
     {
+      "type": "vmess",
+      "tag": "all-自建SG",
+      "server": "8.spf.us.kg",
+      "server_port": 8443,
+      "uuid": "3a194682-585f-423a-87e9-f687d88a5f88",
+      "security": "auto",
+      "tls": {
+        "enabled": true
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/spfnas",
+        "headers": {
+          "Host": "8.spf.us.kg"
+        }
+      }
+    },
+    {
       "type": "shadowsocks",
-      "tag": "hkg-01",
-      "server": "d78a05b.pixepf.sbs",
+      "tag": "all-官址：dash.lilisi.cc",
+      "server": "127.0.0.1",
+      "server_port": 11451,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-TG群：lilisi_network",
+      "server": "127.0.0.1",
+      "server_port": 11451,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇭🇰 高级 | 香港 01",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10001,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇭🇰 高级 | 香港 02",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10002,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇭🇰 高级 | 香港 03",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10003,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇭🇰 高级 | 香港 04",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10004,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇭🇰 高级 | 香港 05",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10005,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇹🇼 高级 | 台湾 01",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10011,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇹🇼 高级 | 台湾 02",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10012,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇹🇼 高级 | 台湾 03",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10013,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇹🇼 高级 | 台湾 04",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10014,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇹🇼 高级 | 台湾 05",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10015,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇸🇬 高级 | 新加坡 01",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10021,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇸🇬 高级 | 新加坡 02",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10022,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇸🇬 高级 | 新加坡 03",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10023,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇸🇬 高级 | 新加坡 04",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10024,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇸🇬 高级 | 新加坡 05",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10025,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇯🇵 高级 | 日本 01",
+      "server": "cdn.node4.lilisi.link",
       "server_port": 20001,
-      "method": "aes-128-gcm",
-      "password": "4c1209fd95535300",
-      "udp_over_tcp": false,
-      "multiplex": {
-        "enabled": true,
-        "protocol": "h2mux",
-        "max_connections": 4,
-        "min_streams": 4
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇯🇵 高级 | 日本 02",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20002,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇯🇵 高级 | 日本 03",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20003,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇯🇵 高级 | 日本 04",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20004,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇯🇵 高级 | 日本 05",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20005,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇺🇸 高级 | 美国 01",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20011,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇺🇸 高级 | 美国 02",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20012,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇺🇸 高级 | 美国 03",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20013,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇺🇸 高级 | 美国 04",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20014,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇺🇸 高级 | 美国 05",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20015,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇰🇷 高级 | 韩国 01",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20021,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇰🇷 高级 | 韩国 02",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20022,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇻🇳 高级 | 越南 01",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10031,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇻🇳 高级 | 越南 02",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10032,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇲🇾 高级 | 马来 01",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10041,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇲🇾 高级 | 马来 02",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10042,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇮🇩 高级 | 印尼 01",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10051,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇮🇩 高级 | 印尼 02",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10052,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇹🇭 高级 | 泰国 01",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10061,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇹🇭 高级 | 泰国 02",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10062,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇮🇳 高级 | 印度 01",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10071,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇮🇳 高级 | 印度 02",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10072,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇦🇺 高级 | 澳洲 01",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10081,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇦🇺 高级 | 澳洲 02",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10082,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇩🇪 高级 | 德国 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20041,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇩🇪 高级 | 德国 02",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20042,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇬🇧 高级 | 英国 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20051,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇬🇧 高级 | 英国 02",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20052,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇫🇷 高级 | 法国 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20061,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇫🇷 高级 | 法国 02",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20062,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇳🇱 高级 | 荷兰 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20071,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇵🇱 高级 | 波兰 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20072,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇬🇷 高级 | 希腊 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20073,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇸🇪 高级 | 瑞典 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20074,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇨🇭 高级 | 瑞士 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20075,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇫🇮 高级 | 芬兰 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20076,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇳🇴 高级 | 挪威 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20077,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇨🇿 高级 | 捷克 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20078,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇷🇺 高级 | 俄罗斯 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20079,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇹🇷 高级 | 土耳其 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20080,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇮🇹 高级 | 意大利 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20081,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇺🇦 高级 | 乌克兰 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20082,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇱🇺 高级 | 卢森堡 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20083,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇧🇪 高级 | 比利时 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20084,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇮🇪 高级 | 爱尔兰 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20085,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇱🇹 高级 | 立陶宛 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20086,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇪🇸 高级 | 西班牙 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20087,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇭🇷 高级 | 克罗地亚 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20088,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇱🇻 高级 | 拉脱维亚 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20089,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇷🇴 高级 | 罗马尼亚 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20090,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇲🇩 高级 | 摩尔多瓦 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20091,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇰🇿 高级 | 哈萨克 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20092,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇨🇦 高级 | 加拿大 01",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20031,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇧🇷 高级 | 巴西 01",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20032,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇮🇱 高级 | 以色列 01",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10093,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇶🇦 高级 | 卡塔尔 01",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10094,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇦🇪 高级 | 阿联酋 01",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10095,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇳🇬 高级 | 尼日利亚 01",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10096,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇵🇭 高级| 菲律宾 01",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10100,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇭🇰 标准 | 香港 01",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10001,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇭🇰 标准 | 香港 02",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10002,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇭🇰 标准 | 香港 03",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10003,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇭🇰 标准 | 香港 04",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10004,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇭🇰 标准 | 香港 05",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10005,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇹🇼 标准 | 台湾 01",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10011,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇹🇼 标准 | 台湾 02",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10012,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇹🇼 标准 | 台湾 03",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10013,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇹🇼 标准 | 台湾 04",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10014,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇹🇼 标准 | 台湾 05",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10015,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇸🇬 标准 | 新加坡 01",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10021,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇸🇬 标准 | 新加坡 02",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10022,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇸🇬 标准 | 新加坡 03",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10023,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇸🇬 标准 | 新加坡 04",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10024,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇸🇬 标准 | 新加坡 05",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10025,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇯🇵 标准 | 日本 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20001,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇯🇵 标准 | 日本 02",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20002,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇯🇵 标准 | 日本 03",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20003,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇯🇵 标准 | 日本 04",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20004,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇯🇵 标准 | 日本 05",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20005,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇺🇸 标准 | 美国 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20011,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇺🇸 标准 | 美国 02",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20012,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇺🇸 标准 | 美国 03",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20013,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇺🇸 标准 | 美国 04",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20014,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇺🇸 标准 | 美国 05",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20015,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇰🇷 标准 | 韩国 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20021,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇰🇷 标准 | 韩国 02",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20022,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇻🇳 标准 | 越南 01",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10031,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇻🇳 标准 | 越南 02",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10032,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇲🇾 标准 | 马来 01",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10041,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇲🇾 标准 | 马来 02",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10042,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇮🇩 标准 | 印尼 01",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10051,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇮🇩 标准 | 印尼 02",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10052,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇮🇳 标准 | 印度 01",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10061,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇮🇳 标准 | 印度 02",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10062,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇦🇺 标准 | 澳洲 01",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10071,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇵🇭 标准 | 菲律宾 01",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10072,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇩🇪 标准 | 德国 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20031,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇩🇪 标准 | 德国 02",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20032,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇬🇧 标准 | 英国 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20041,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇬🇧 标准 | 英国 02",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20042,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇳🇱 标准 | 荷兰 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20051,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇹🇷 标准 | 土耳其 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20052,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇦🇪 标准 | 阿联酋 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20053,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇨🇦 标准 | 加拿大 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20054,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "all-🇲🇽标准 | 墨西哥",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20061,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-🇭🇰 高级 | 香港 01",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10001,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-🇭🇰 高级 | 香港 02",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10002,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-🇭🇰 高级 | 香港 03",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10003,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-🇭🇰 高级 | 香港 04",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10004,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-🇭🇰 高级 | 香港 05",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10005,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-🇭🇰 标准 | 香港 01",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10001,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-🇭🇰 标准 | 香港 02",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10002,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-🇭🇰 标准 | 香港 03",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10003,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-🇭🇰 标准 | 香港 04",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10004,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-🇭🇰 标准 | 香港 05",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10005,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "tw-🇹🇼 高级 | 台湾 01",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10011,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "tw-🇹🇼 高级 | 台湾 02",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10012,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "tw-🇹🇼 高级 | 台湾 03",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10013,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "tw-🇹🇼 高级 | 台湾 04",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10014,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "tw-🇹🇼 高级 | 台湾 05",
+      "server": "cdn.zx.lilisi.link",
+      "server_port": 10015,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "tw-🇹🇼 标准 | 台湾 01",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10011,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "tw-🇹🇼 标准 | 台湾 02",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10012,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "tw-🇹🇼 标准 | 台湾 03",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10013,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "tw-🇹🇼 标准 | 台湾 04",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10014,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "tw-🇹🇼 标准 | 台湾 05",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10015,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "jp-🇯🇵 高级 | 日本 01",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20001,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "jp-🇯🇵 高级 | 日本 02",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20002,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "jp-🇯🇵 高级 | 日本 03",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20003,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "jp-🇯🇵 高级 | 日本 04",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20004,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "jp-🇯🇵 高级 | 日本 05",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20005,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "jp-🇯🇵 标准 | 日本 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20001,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "jp-🇯🇵 标准 | 日本 02",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20002,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "jp-🇯🇵 标准 | 日本 03",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20003,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "jp-🇯🇵 标准 | 日本 04",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20004,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "jp-🇯🇵 标准 | 日本 05",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20005,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "vmess",
+      "tag": "sg-自建SG",
+      "server": "8.spf.us.kg",
+      "server_port": 8443,
+      "uuid": "3a194682-585f-423a-87e9-f687d88a5f88",
+      "security": "auto",
+      "tls": {
+        "enabled": true
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/spfnas",
+        "headers": {
+          "Host": "8.spf.us.kg"
+        }
       }
     },
     {
       "type": "shadowsocks",
-      "tag": "hkg-02",
-      "server": "d78a05b.pixepf.sbs",
-      "server_port": 20002,
-      "method": "aes-128-gcm",
-      "password": "4c1209fd95535300",
-      "udp_over_tcp": false,
-      "multiplex": {
-        "enabled": true,
-        "protocol": "h2mux",
-        "max_connections": 4,
-        "min_streams": 4
-      }
+      "tag": "sg-🇸🇬 高级 | 新加坡 01",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10021,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
     },
     {
-      "type": "selector",
-      "tag": "香港 🇭🇰",
-      "outbounds": [
-        "hkg-01",
-        "hkg-02"
-      ],
-      "default": "hkg-01"
+      "type": "shadowsocks",
+      "tag": "sg-🇸🇬 高级 | 新加坡 02",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10022,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "sg-🇸🇬 高级 | 新加坡 03",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10023,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "sg-🇸🇬 高级 | 新加坡 04",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10024,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "sg-🇸🇬 高级 | 新加坡 05",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10025,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "sg-🇸🇬 标准 | 新加坡 01",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10021,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "sg-🇸🇬 标准 | 新加坡 02",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10022,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "sg-🇸🇬 标准 | 新加坡 03",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10023,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "sg-🇸🇬 标准 | 新加坡 04",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10024,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "sg-🇸🇬 标准 | 新加坡 05",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10025,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "us-🇺🇸 高级 | 美国 01",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20011,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "us-🇺🇸 高级 | 美国 02",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20012,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "us-🇺🇸 高级 | 美国 03",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20013,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "us-🇺🇸 高级 | 美国 04",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20014,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "us-🇺🇸 高级 | 美国 05",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20015,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "us-🇺🇸 标准 | 美国 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20011,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "us-🇺🇸 标准 | 美国 02",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20012,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "us-🇺🇸 标准 | 美国 03",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20013,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "us-🇺🇸 标准 | 美国 04",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20014,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "us-🇺🇸 标准 | 美国 05",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20015,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "kr-🇰🇷 高级 | 韩国 01",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20021,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "kr-🇰🇷 高级 | 韩国 02",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20022,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "kr-🇰🇷 标准 | 韩国 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20021,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "kr-🇰🇷 标准 | 韩国 02",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20022,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "gb-🇬🇧 高级 | 英国 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20051,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "gb-🇬🇧 高级 | 英国 02",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20052,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "gb-🇬🇧 标准 | 英国 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20041,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "gb-🇬🇧 标准 | 英国 02",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20042,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "de-🇩🇪 高级 | 德国 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20041,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "de-🇩🇪 高级 | 德国 02",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20042,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "de-🇩🇪 标准 | 德国 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20031,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "de-🇩🇪 标准 | 德国 02",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20032,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "ca-🇨🇦 高级 | 加拿大 01",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20031,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "ca-🇨🇦 标准 | 加拿大 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20054,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "in-🇮🇳 高级 | 印度 01",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10071,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "in-🇮🇳 高级 | 印度 02",
+      "server": "cdn.node3.lilisi.link",
+      "server_port": 10072,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "in-🇮🇳 标准 | 印度 01",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10061,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "in-🇮🇳 标准 | 印度 02",
+      "server": "cdn.node1.lilisi.link",
+      "server_port": 10062,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "ru-🇷🇺 高级 | 俄罗斯 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20079,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "fr-🇫🇷 高级 | 法国 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20061,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "fr-🇫🇷 高级 | 法国 02",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20062,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "nl-🇳🇱 高级 | 荷兰 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20071,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "nl-🇳🇱 标准 | 荷兰 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20051,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "tr-🇹🇷 高级 | 土耳其 01",
+      "server": "cdn.node5.lilisi.link",
+      "server_port": 20080,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "tr-🇹🇷 标准 | 土耳其 01",
+      "server": "cdn.node2.lilisi.link",
+      "server_port": 20052,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "br-🇧🇷 高级 | 巴西 01",
+      "server": "cdn.node4.lilisi.link",
+      "server_port": 20032,
+      "password": "a69c184b-5fcc-33b8-ad2b-3b09f10b1c04",
+      "method": "aes-128-gcm"
     },
     {
       "type": "selector",
       "tag": "全部 🌏",
       "outbounds": [
-        "all-自建SG"
+        "all-自建SG",
+        "all-官址：dash.lilisi.cc",
+        "all-TG群：lilisi_network",
+        "all-🇭🇰 高级 | 香港 01",
+        "all-🇭🇰 高级 | 香港 02",
+        "all-🇭🇰 高级 | 香港 03",
+        "all-🇭🇰 高级 | 香港 04",
+        "all-🇭🇰 高级 | 香港 05",
+        "all-🇹🇼 高级 | 台湾 01",
+        "all-🇹🇼 高级 | 台湾 02",
+        "all-🇹🇼 高级 | 台湾 03",
+        "all-🇹🇼 高级 | 台湾 04",
+        "all-🇹🇼 高级 | 台湾 05",
+        "all-🇸🇬 高级 | 新加坡 01",
+        "all-🇸🇬 高级 | 新加坡 02",
+        "all-🇸🇬 高级 | 新加坡 03",
+        "all-🇸🇬 高级 | 新加坡 04",
+        "all-🇸🇬 高级 | 新加坡 05",
+        "all-🇯🇵 高级 | 日本 01",
+        "all-🇯🇵 高级 | 日本 02",
+        "all-🇯🇵 高级 | 日本 03",
+        "all-🇯🇵 高级 | 日本 04",
+        "all-🇯🇵 高级 | 日本 05",
+        "all-🇺🇸 高级 | 美国 01",
+        "all-🇺🇸 高级 | 美国 02",
+        "all-🇺🇸 高级 | 美国 03",
+        "all-🇺🇸 高级 | 美国 04",
+        "all-🇺🇸 高级 | 美国 05",
+        "all-🇰🇷 高级 | 韩国 01",
+        "all-🇰🇷 高级 | 韩国 02",
+        "all-🇻🇳 高级 | 越南 01",
+        "all-🇻🇳 高级 | 越南 02",
+        "all-🇲🇾 高级 | 马来 01",
+        "all-🇲🇾 高级 | 马来 02",
+        "all-🇮🇩 高级 | 印尼 01",
+        "all-🇮🇩 高级 | 印尼 02",
+        "all-🇹🇭 高级 | 泰国 01",
+        "all-🇹🇭 高级 | 泰国 02",
+        "all-🇮🇳 高级 | 印度 01",
+        "all-🇮🇳 高级 | 印度 02",
+        "all-🇦🇺 高级 | 澳洲 01",
+        "all-🇦🇺 高级 | 澳洲 02",
+        "all-🇩🇪 高级 | 德国 01",
+        "all-🇩🇪 高级 | 德国 02",
+        "all-🇬🇧 高级 | 英国 01",
+        "all-🇬🇧 高级 | 英国 02",
+        "all-🇫🇷 高级 | 法国 01",
+        "all-🇫🇷 高级 | 法国 02",
+        "all-🇳🇱 高级 | 荷兰 01",
+        "all-🇵🇱 高级 | 波兰 01",
+        "all-🇬🇷 高级 | 希腊 01",
+        "all-🇸🇪 高级 | 瑞典 01",
+        "all-🇨🇭 高级 | 瑞士 01",
+        "all-🇫🇮 高级 | 芬兰 01",
+        "all-🇳🇴 高级 | 挪威 01",
+        "all-🇨🇿 高级 | 捷克 01",
+        "all-🇷🇺 高级 | 俄罗斯 01",
+        "all-🇹🇷 高级 | 土耳其 01",
+        "all-🇮🇹 高级 | 意大利 01",
+        "all-🇺🇦 高级 | 乌克兰 01",
+        "all-🇱🇺 高级 | 卢森堡 01",
+        "all-🇧🇪 高级 | 比利时 01",
+        "all-🇮🇪 高级 | 爱尔兰 01",
+        "all-🇱🇹 高级 | 立陶宛 01",
+        "all-🇪🇸 高级 | 西班牙 01",
+        "all-🇭🇷 高级 | 克罗地亚 01",
+        "all-🇱🇻 高级 | 拉脱维亚 01",
+        "all-🇷🇴 高级 | 罗马尼亚 01",
+        "all-🇲🇩 高级 | 摩尔多瓦 01",
+        "all-🇰🇿 高级 | 哈萨克 01",
+        "all-🇨🇦 高级 | 加拿大 01",
+        "all-🇧🇷 高级 | 巴西 01",
+        "all-🇮🇱 高级 | 以色列 01",
+        "all-🇶🇦 高级 | 卡塔尔 01",
+        "all-🇦🇪 高级 | 阿联酋 01",
+        "all-🇳🇬 高级 | 尼日利亚 01",
+        "all-🇵🇭 高级| 菲律宾 01",
+        "all-🇭🇰 标准 | 香港 01",
+        "all-🇭🇰 标准 | 香港 02",
+        "all-🇭🇰 标准 | 香港 03",
+        "all-🇭🇰 标准 | 香港 04",
+        "all-🇭🇰 标准 | 香港 05",
+        "all-🇹🇼 标准 | 台湾 01",
+        "all-🇹🇼 标准 | 台湾 02",
+        "all-🇹🇼 标准 | 台湾 03",
+        "all-🇹🇼 标准 | 台湾 04",
+        "all-🇹🇼 标准 | 台湾 05",
+        "all-🇸🇬 标准 | 新加坡 01",
+        "all-🇸🇬 标准 | 新加坡 02",
+        "all-🇸🇬 标准 | 新加坡 03",
+        "all-🇸🇬 标准 | 新加坡 04",
+        "all-🇸🇬 标准 | 新加坡 05",
+        "all-🇯🇵 标准 | 日本 01",
+        "all-🇯🇵 标准 | 日本 02",
+        "all-🇯🇵 标准 | 日本 03",
+        "all-🇯🇵 标准 | 日本 04",
+        "all-🇯🇵 标准 | 日本 05",
+        "all-🇺🇸 标准 | 美国 01",
+        "all-🇺🇸 标准 | 美国 02",
+        "all-🇺🇸 标准 | 美国 03",
+        "all-🇺🇸 标准 | 美国 04",
+        "all-🇺🇸 标准 | 美国 05",
+        "all-🇰🇷 标准 | 韩国 01",
+        "all-🇰🇷 标准 | 韩国 02",
+        "all-🇻🇳 标准 | 越南 01",
+        "all-🇻🇳 标准 | 越南 02",
+        "all-🇲🇾 标准 | 马来 01",
+        "all-🇲🇾 标准 | 马来 02",
+        "all-🇮🇩 标准 | 印尼 01",
+        "all-🇮🇩 标准 | 印尼 02",
+        "all-🇮🇳 标准 | 印度 01",
+        "all-🇮🇳 标准 | 印度 02",
+        "all-🇦🇺 标准 | 澳洲 01",
+        "all-🇵🇭 标准 | 菲律宾 01",
+        "all-🇩🇪 标准 | 德国 01",
+        "all-🇩🇪 标准 | 德国 02",
+        "all-🇬🇧 标准 | 英国 01",
+        "all-🇬🇧 标准 | 英国 02",
+        "all-🇳🇱 标准 | 荷兰 01",
+        "all-🇹🇷 标准 | 土耳其 01",
+        "all-🇦🇪 标准 | 阿联酋 01",
+        "all-🇨🇦 标准 | 加拿大 01",
+        "all-🇲🇽标准 | 墨西哥"
       ],
       "default": "all-自建SG"
     },
     {
       "type": "selector",
+      "tag": "香港 🇭🇰",
+      "outbounds": [
+        "hk-🇭🇰 高级 | 香港 01",
+        "hk-🇭🇰 高级 | 香港 02",
+        "hk-🇭🇰 高级 | 香港 03",
+        "hk-🇭🇰 高级 | 香港 04",
+        "hk-🇭🇰 高级 | 香港 05",
+        "hk-🇭🇰 标准 | 香港 01",
+        "hk-🇭🇰 标准 | 香港 02",
+        "hk-🇭🇰 标准 | 香港 03",
+        "hk-🇭🇰 标准 | 香港 04",
+        "hk-🇭🇰 标准 | 香港 05"
+      ],
+      "default": "hk-🇭🇰 高级 | 香港 01"
+    },
+    {
+      "type": "selector",
+      "tag": "台湾 🇹🇼",
+      "outbounds": [
+        "tw-🇹🇼 高级 | 台湾 01",
+        "tw-🇹🇼 高级 | 台湾 02",
+        "tw-🇹🇼 高级 | 台湾 03",
+        "tw-🇹🇼 高级 | 台湾 04",
+        "tw-🇹🇼 高级 | 台湾 05",
+        "tw-🇹🇼 标准 | 台湾 01",
+        "tw-🇹🇼 标准 | 台湾 02",
+        "tw-🇹🇼 标准 | 台湾 03",
+        "tw-🇹🇼 标准 | 台湾 04",
+        "tw-🇹🇼 标准 | 台湾 05"
+      ],
+      "default": "tw-🇹🇼 高级 | 台湾 01"
+    },
+    {
+      "type": "selector",
+      "tag": "日本 🇯🇵",
+      "outbounds": [
+        "jp-🇯🇵 高级 | 日本 01",
+        "jp-🇯🇵 高级 | 日本 02",
+        "jp-🇯🇵 高级 | 日本 03",
+        "jp-🇯🇵 高级 | 日本 04",
+        "jp-🇯🇵 高级 | 日本 05",
+        "jp-🇯🇵 标准 | 日本 01",
+        "jp-🇯🇵 标准 | 日本 02",
+        "jp-🇯🇵 标准 | 日本 03",
+        "jp-🇯🇵 标准 | 日本 04",
+        "jp-🇯🇵 标准 | 日本 05"
+      ],
+      "default": "jp-🇯🇵 高级 | 日本 01"
+    },
+    {
+      "type": "selector",
       "tag": "新加坡 🇸🇬",
       "outbounds": [
-        "sg-自建SG"
+        "sg-自建SG",
+        "sg-🇸🇬 高级 | 新加坡 01",
+        "sg-🇸🇬 高级 | 新加坡 02",
+        "sg-🇸🇬 高级 | 新加坡 03",
+        "sg-🇸🇬 高级 | 新加坡 04",
+        "sg-🇸🇬 高级 | 新加坡 05",
+        "sg-🇸🇬 标准 | 新加坡 01",
+        "sg-🇸🇬 标准 | 新加坡 02",
+        "sg-🇸🇬 标准 | 新加坡 03",
+        "sg-🇸🇬 标准 | 新加坡 04",
+        "sg-🇸🇬 标准 | 新加坡 05"
       ],
       "default": "sg-自建SG"
+    },
+    {
+      "type": "selector",
+      "tag": "美国 🇺🇸",
+      "outbounds": [
+        "us-🇺🇸 高级 | 美国 01",
+        "us-🇺🇸 高级 | 美国 02",
+        "us-🇺🇸 高级 | 美国 03",
+        "us-🇺🇸 高级 | 美国 04",
+        "us-🇺🇸 高级 | 美国 05",
+        "us-🇺🇸 标准 | 美国 01",
+        "us-🇺🇸 标准 | 美国 02",
+        "us-🇺🇸 标准 | 美国 03",
+        "us-🇺🇸 标准 | 美国 04",
+        "us-🇺🇸 标准 | 美国 05"
+      ],
+      "default": "us-🇺🇸 高级 | 美国 01"
+    },
+    {
+      "type": "selector",
+      "tag": "韩国 🇰🇷",
+      "outbounds": [
+        "kr-🇰🇷 高级 | 韩国 01",
+        "kr-🇰🇷 高级 | 韩国 02",
+        "kr-🇰🇷 标准 | 韩国 01",
+        "kr-🇰🇷 标准 | 韩国 02"
+      ],
+      "default": "kr-🇰🇷 高级 | 韩国 01"
+    },
+    {
+      "type": "selector",
+      "tag": "英国 🇬🇧",
+      "outbounds": [
+        "gb-🇬🇧 高级 | 英国 01",
+        "gb-🇬🇧 高级 | 英国 02",
+        "gb-🇬🇧 标准 | 英国 01",
+        "gb-🇬🇧 标准 | 英国 02"
+      ],
+      "default": "gb-🇬🇧 高级 | 英国 01"
+    },
+    {
+      "type": "selector",
+      "tag": "德国 🇩🇪",
+      "outbounds": [
+        "de-🇩🇪 高级 | 德国 01",
+        "de-🇩🇪 高级 | 德国 02",
+        "de-🇩🇪 标准 | 德国 01",
+        "de-🇩🇪 标准 | 德国 02"
+      ],
+      "default": "de-🇩🇪 高级 | 德国 01"
+    },
+    {
+      "type": "selector",
+      "tag": "加拿大 🇨🇦",
+      "outbounds": [
+        "ca-🇨🇦 高级 | 加拿大 01",
+        "ca-🇨🇦 标准 | 加拿大 01"
+      ],
+      "default": "ca-🇨🇦 高级 | 加拿大 01"
+    },
+    {
+      "type": "selector",
+      "tag": "印度 🇮🇳",
+      "outbounds": [
+        "in-🇮🇳 高级 | 印度 01",
+        "in-🇮🇳 高级 | 印度 02",
+        "in-🇮🇳 标准 | 印度 01",
+        "in-🇮🇳 标准 | 印度 02"
+      ],
+      "default": "in-🇮🇳 高级 | 印度 01"
+    },
+    {
+      "type": "selector",
+      "tag": "俄罗斯 🇷🇺",
+      "outbounds": [
+        "ru-🇷🇺 高级 | 俄罗斯 01"
+      ],
+      "default": "ru-🇷🇺 高级 | 俄罗斯 01"
+    },
+    {
+      "type": "selector",
+      "tag": "法国 🇫🇷",
+      "outbounds": [
+        "fr-🇫🇷 高级 | 法国 01",
+        "fr-🇫🇷 高级 | 法国 02"
+      ],
+      "default": "fr-🇫🇷 高级 | 法国 01"
+    },
+    {
+      "type": "selector",
+      "tag": "荷兰 🇳🇱",
+      "outbounds": [
+        "nl-🇳🇱 高级 | 荷兰 01",
+        "nl-🇳🇱 标准 | 荷兰 01"
+      ],
+      "default": "nl-🇳🇱 高级 | 荷兰 01"
+    },
+    {
+      "type": "selector",
+      "tag": "土耳其 🇹🇷",
+      "outbounds": [
+        "tr-🇹🇷 高级 | 土耳其 01",
+        "tr-🇹🇷 标准 | 土耳其 01"
+      ],
+      "default": "tr-🇹🇷 高级 | 土耳其 01"
+    },
+    {
+      "type": "selector",
+      "tag": "巴西 🇧🇷",
+      "outbounds": [
+        "br-🇧🇷 高级 | 巴西 01"
+      ],
+      "default": "br-🇧🇷 高级 | 巴西 01"
     },
     {
       "type": "urltest",
       "tag": "全部 🌏自动",
       "outbounds": [
-        "all-自建SG"
+        "all-自建SG",
+        "all-官址：dash.lilisi.cc",
+        "all-TG群：lilisi_network",
+        "all-🇭🇰 高级 | 香港 01",
+        "all-🇭🇰 高级 | 香港 02",
+        "all-🇭🇰 高级 | 香港 03",
+        "all-🇭🇰 高级 | 香港 04",
+        "all-🇭🇰 高级 | 香港 05",
+        "all-🇹🇼 高级 | 台湾 01",
+        "all-🇹🇼 高级 | 台湾 02",
+        "all-🇹🇼 高级 | 台湾 03",
+        "all-🇹🇼 高级 | 台湾 04",
+        "all-🇹🇼 高级 | 台湾 05",
+        "all-🇸🇬 高级 | 新加坡 01",
+        "all-🇸🇬 高级 | 新加坡 02",
+        "all-🇸🇬 高级 | 新加坡 03",
+        "all-🇸🇬 高级 | 新加坡 04",
+        "all-🇸🇬 高级 | 新加坡 05",
+        "all-🇯🇵 高级 | 日本 01",
+        "all-🇯🇵 高级 | 日本 02",
+        "all-🇯🇵 高级 | 日本 03",
+        "all-🇯🇵 高级 | 日本 04",
+        "all-🇯🇵 高级 | 日本 05",
+        "all-🇺🇸 高级 | 美国 01",
+        "all-🇺🇸 高级 | 美国 02",
+        "all-🇺🇸 高级 | 美国 03",
+        "all-🇺🇸 高级 | 美国 04",
+        "all-🇺🇸 高级 | 美国 05",
+        "all-🇰🇷 高级 | 韩国 01",
+        "all-🇰🇷 高级 | 韩国 02",
+        "all-🇻🇳 高级 | 越南 01",
+        "all-🇻🇳 高级 | 越南 02",
+        "all-🇲🇾 高级 | 马来 01",
+        "all-🇲🇾 高级 | 马来 02",
+        "all-🇮🇩 高级 | 印尼 01",
+        "all-🇮🇩 高级 | 印尼 02",
+        "all-🇹🇭 高级 | 泰国 01",
+        "all-🇹🇭 高级 | 泰国 02",
+        "all-🇮🇳 高级 | 印度 01",
+        "all-🇮🇳 高级 | 印度 02",
+        "all-🇦🇺 高级 | 澳洲 01",
+        "all-🇦🇺 高级 | 澳洲 02",
+        "all-🇩🇪 高级 | 德国 01",
+        "all-🇩🇪 高级 | 德国 02",
+        "all-🇬🇧 高级 | 英国 01",
+        "all-🇬🇧 高级 | 英国 02",
+        "all-🇫🇷 高级 | 法国 01",
+        "all-🇫🇷 高级 | 法国 02",
+        "all-🇳🇱 高级 | 荷兰 01",
+        "all-🇵🇱 高级 | 波兰 01",
+        "all-🇬🇷 高级 | 希腊 01",
+        "all-🇸🇪 高级 | 瑞典 01",
+        "all-🇨🇭 高级 | 瑞士 01",
+        "all-🇫🇮 高级 | 芬兰 01",
+        "all-🇳🇴 高级 | 挪威 01",
+        "all-🇨🇿 高级 | 捷克 01",
+        "all-🇷🇺 高级 | 俄罗斯 01",
+        "all-🇹🇷 高级 | 土耳其 01",
+        "all-🇮🇹 高级 | 意大利 01",
+        "all-🇺🇦 高级 | 乌克兰 01",
+        "all-🇱🇺 高级 | 卢森堡 01",
+        "all-🇧🇪 高级 | 比利时 01",
+        "all-🇮🇪 高级 | 爱尔兰 01",
+        "all-🇱🇹 高级 | 立陶宛 01",
+        "all-🇪🇸 高级 | 西班牙 01",
+        "all-🇭🇷 高级 | 克罗地亚 01",
+        "all-🇱🇻 高级 | 拉脱维亚 01",
+        "all-🇷🇴 高级 | 罗马尼亚 01",
+        "all-🇲🇩 高级 | 摩尔多瓦 01",
+        "all-🇰🇿 高级 | 哈萨克 01",
+        "all-🇨🇦 高级 | 加拿大 01",
+        "all-🇧🇷 高级 | 巴西 01",
+        "all-🇮🇱 高级 | 以色列 01",
+        "all-🇶🇦 高级 | 卡塔尔 01",
+        "all-🇦🇪 高级 | 阿联酋 01",
+        "all-🇳🇬 高级 | 尼日利亚 01",
+        "all-🇵🇭 高级| 菲律宾 01",
+        "all-🇭🇰 标准 | 香港 01",
+        "all-🇭🇰 标准 | 香港 02",
+        "all-🇭🇰 标准 | 香港 03",
+        "all-🇭🇰 标准 | 香港 04",
+        "all-🇭🇰 标准 | 香港 05",
+        "all-🇹🇼 标准 | 台湾 01",
+        "all-🇹🇼 标准 | 台湾 02",
+        "all-🇹🇼 标准 | 台湾 03",
+        "all-🇹🇼 标准 | 台湾 04",
+        "all-🇹🇼 标准 | 台湾 05",
+        "all-🇸🇬 标准 | 新加坡 01",
+        "all-🇸🇬 标准 | 新加坡 02",
+        "all-🇸🇬 标准 | 新加坡 03",
+        "all-🇸🇬 标准 | 新加坡 04",
+        "all-🇸🇬 标准 | 新加坡 05",
+        "all-🇯🇵 标准 | 日本 01",
+        "all-🇯🇵 标准 | 日本 02",
+        "all-🇯🇵 标准 | 日本 03",
+        "all-🇯🇵 标准 | 日本 04",
+        "all-🇯🇵 标准 | 日本 05",
+        "all-🇺🇸 标准 | 美国 01",
+        "all-🇺🇸 标准 | 美国 02",
+        "all-🇺🇸 标准 | 美国 03",
+        "all-🇺🇸 标准 | 美国 04",
+        "all-🇺🇸 标准 | 美国 05",
+        "all-🇰🇷 标准 | 韩国 01",
+        "all-🇰🇷 标准 | 韩国 02",
+        "all-🇻🇳 标准 | 越南 01",
+        "all-🇻🇳 标准 | 越南 02",
+        "all-🇲🇾 标准 | 马来 01",
+        "all-🇲🇾 标准 | 马来 02",
+        "all-🇮🇩 标准 | 印尼 01",
+        "all-🇮🇩 标准 | 印尼 02",
+        "all-🇮🇳 标准 | 印度 01",
+        "all-🇮🇳 标准 | 印度 02",
+        "all-🇦🇺 标准 | 澳洲 01",
+        "all-🇵🇭 标准 | 菲律宾 01",
+        "all-🇩🇪 标准 | 德国 01",
+        "all-🇩🇪 标准 | 德国 02",
+        "all-🇬🇧 标准 | 英国 01",
+        "all-🇬🇧 标准 | 英国 02",
+        "all-🇳🇱 标准 | 荷兰 01",
+        "all-🇹🇷 标准 | 土耳其 01",
+        "all-🇦🇪 标准 | 阿联酋 01",
+        "all-🇨🇦 标准 | 加拿大 01",
+        "all-🇲🇽标准 | 墨西哥"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "香港 🇭🇰自动",
+      "outbounds": [
+        "hk-🇭🇰 高级 | 香港 01",
+        "hk-🇭🇰 高级 | 香港 02",
+        "hk-🇭🇰 高级 | 香港 03",
+        "hk-🇭🇰 高级 | 香港 04",
+        "hk-🇭🇰 高级 | 香港 05",
+        "hk-🇭🇰 标准 | 香港 01",
+        "hk-🇭🇰 标准 | 香港 02",
+        "hk-🇭🇰 标准 | 香港 03",
+        "hk-🇭🇰 标准 | 香港 04",
+        "hk-🇭🇰 标准 | 香港 05"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "台湾 🇹🇼自动",
+      "outbounds": [
+        "tw-🇹🇼 高级 | 台湾 01",
+        "tw-🇹🇼 高级 | 台湾 02",
+        "tw-🇹🇼 高级 | 台湾 03",
+        "tw-🇹🇼 高级 | 台湾 04",
+        "tw-🇹🇼 高级 | 台湾 05",
+        "tw-🇹🇼 标准 | 台湾 01",
+        "tw-🇹🇼 标准 | 台湾 02",
+        "tw-🇹🇼 标准 | 台湾 03",
+        "tw-🇹🇼 标准 | 台湾 04",
+        "tw-🇹🇼 标准 | 台湾 05"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "日本 🇯🇵自动",
+      "outbounds": [
+        "jp-🇯🇵 高级 | 日本 01",
+        "jp-🇯🇵 高级 | 日本 02",
+        "jp-🇯🇵 高级 | 日本 03",
+        "jp-🇯🇵 高级 | 日本 04",
+        "jp-🇯🇵 高级 | 日本 05",
+        "jp-🇯🇵 标准 | 日本 01",
+        "jp-🇯🇵 标准 | 日本 02",
+        "jp-🇯🇵 标准 | 日本 03",
+        "jp-🇯🇵 标准 | 日本 04",
+        "jp-🇯🇵 标准 | 日本 05"
       ],
       "url": "http://www.gstatic.com/generate_204",
       "interval": "300s",
@@ -151,7 +2217,152 @@
       "type": "urltest",
       "tag": "新加坡 🇸🇬自动",
       "outbounds": [
-        "sg-自建SG"
+        "sg-自建SG",
+        "sg-🇸🇬 高级 | 新加坡 01",
+        "sg-🇸🇬 高级 | 新加坡 02",
+        "sg-🇸🇬 高级 | 新加坡 03",
+        "sg-🇸🇬 高级 | 新加坡 04",
+        "sg-🇸🇬 高级 | 新加坡 05",
+        "sg-🇸🇬 标准 | 新加坡 01",
+        "sg-🇸🇬 标准 | 新加坡 02",
+        "sg-🇸🇬 标准 | 新加坡 03",
+        "sg-🇸🇬 标准 | 新加坡 04",
+        "sg-🇸🇬 标准 | 新加坡 05"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "美国 🇺🇸自动",
+      "outbounds": [
+        "us-🇺🇸 高级 | 美国 01",
+        "us-🇺🇸 高级 | 美国 02",
+        "us-🇺🇸 高级 | 美国 03",
+        "us-🇺🇸 高级 | 美国 04",
+        "us-🇺🇸 高级 | 美国 05",
+        "us-🇺🇸 标准 | 美国 01",
+        "us-🇺🇸 标准 | 美国 02",
+        "us-🇺🇸 标准 | 美国 03",
+        "us-🇺🇸 标准 | 美国 04",
+        "us-🇺🇸 标准 | 美国 05"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "韩国 🇰🇷自动",
+      "outbounds": [
+        "kr-🇰🇷 高级 | 韩国 01",
+        "kr-🇰🇷 高级 | 韩国 02",
+        "kr-🇰🇷 标准 | 韩国 01",
+        "kr-🇰🇷 标准 | 韩国 02"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "英国 🇬🇧自动",
+      "outbounds": [
+        "gb-🇬🇧 高级 | 英国 01",
+        "gb-🇬🇧 高级 | 英国 02",
+        "gb-🇬🇧 标准 | 英国 01",
+        "gb-🇬🇧 标准 | 英国 02"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "德国 🇩🇪自动",
+      "outbounds": [
+        "de-🇩🇪 高级 | 德国 01",
+        "de-🇩🇪 高级 | 德国 02",
+        "de-🇩🇪 标准 | 德国 01",
+        "de-🇩🇪 标准 | 德国 02"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "加拿大 🇨🇦自动",
+      "outbounds": [
+        "ca-🇨🇦 高级 | 加拿大 01",
+        "ca-🇨🇦 标准 | 加拿大 01"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "印度 🇮🇳自动",
+      "outbounds": [
+        "in-🇮🇳 高级 | 印度 01",
+        "in-🇮🇳 高级 | 印度 02",
+        "in-🇮🇳 标准 | 印度 01",
+        "in-🇮🇳 标准 | 印度 02"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "俄罗斯 🇷🇺自动",
+      "outbounds": [
+        "ru-🇷🇺 高级 | 俄罗斯 01"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "法国 🇫🇷自动",
+      "outbounds": [
+        "fr-🇫🇷 高级 | 法国 01",
+        "fr-🇫🇷 高级 | 法国 02"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "荷兰 🇳🇱自动",
+      "outbounds": [
+        "nl-🇳🇱 高级 | 荷兰 01",
+        "nl-🇳🇱 标准 | 荷兰 01"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "土耳其 🇹🇷自动",
+      "outbounds": [
+        "tr-🇹🇷 高级 | 土耳其 01",
+        "tr-🇹🇷 标准 | 土耳其 01"
+      ],
+      "url": "http://www.gstatic.com/generate_204",
+      "interval": "300s",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "巴西 🇧🇷自动",
+      "outbounds": [
+        "br-🇧🇷 高级 | 巴西 01"
       ],
       "url": "http://www.gstatic.com/generate_204",
       "interval": "300s",
@@ -161,13 +2372,42 @@
       "type": "selector",
       "tag": "节点选择",
       "outbounds": [
+        "全部 🌏",
+        "全部 🌏自动",
         "香港 🇭🇰",
-        "hkg-01",
-        "hkg-02",
+        "香港 🇭🇰自动",
+        "台湾 🇹🇼",
+        "台湾 🇹🇼自动",
+        "日本 🇯🇵",
+        "日本 🇯🇵自动",
+        "新加坡 🇸🇬",
+        "新加坡 🇸🇬自动",
+        "美国 🇺🇸",
+        "美国 🇺🇸自动",
+        "韩国 🇰🇷",
+        "韩国 🇰🇷自动",
+        "英国 🇬🇧",
+        "英国 🇬🇧自动",
+        "德国 🇩🇪",
+        "德国 🇩🇪自动",
+        "加拿大 🇨🇦",
+        "加拿大 🇨🇦自动",
+        "印度 🇮🇳",
+        "印度 🇮🇳自动",
+        "俄罗斯 🇷🇺",
+        "俄罗斯 🇷🇺自动",
+        "法国 🇫🇷",
+        "法国 🇫🇷自动",
+        "荷兰 🇳🇱",
+        "荷兰 🇳🇱自动",
+        "土耳其 🇹🇷",
+        "土耳其 🇹🇷自动",
+        "巴西 🇧🇷",
+        "巴西 🇧🇷自动",
         "direct-out",
         "block"
       ],
-      "default": "香港 🇭🇰"
+      "default": "全部 🌏"
     },
     {
       "type": "selector",
@@ -175,10 +2415,39 @@
       "outbounds": [
         "节点选择",
         "全部 🌏",
-        "新加坡 🇸🇬",
         "全部 🌏自动",
+        "香港 🇭🇰",
+        "香港 🇭🇰自动",
+        "台湾 🇹🇼",
+        "台湾 🇹🇼自动",
+        "日本 🇯🇵",
+        "日本 🇯🇵自动",
+        "新加坡 🇸🇬",
         "新加坡 🇸🇬自动",
-        "direct-out"
+        "美国 🇺🇸",
+        "美国 🇺🇸自动",
+        "韩国 🇰🇷",
+        "韩国 🇰🇷自动",
+        "英国 🇬🇧",
+        "英国 🇬🇧自动",
+        "德国 🇩🇪",
+        "德国 🇩🇪自动",
+        "加拿大 🇨🇦",
+        "加拿大 🇨🇦自动",
+        "印度 🇮🇳",
+        "印度 🇮🇳自动",
+        "俄罗斯 🇷🇺",
+        "俄罗斯 🇷🇺自动",
+        "法国 🇫🇷",
+        "法国 🇫🇷自动",
+        "荷兰 🇳🇱",
+        "荷兰 🇳🇱自动",
+        "土耳其 🇹🇷",
+        "土耳其 🇹🇷自动",
+        "巴西 🇧🇷",
+        "巴西 🇧🇷自动",
+        "direct-out",
+        "block"
       ],
       "default": "节点选择"
     },
@@ -188,10 +2457,39 @@
       "outbounds": [
         "节点选择",
         "全部 🌏",
-        "新加坡 🇸🇬",
         "全部 🌏自动",
+        "香港 🇭🇰",
+        "香港 🇭🇰自动",
+        "台湾 🇹🇼",
+        "台湾 🇹🇼自动",
+        "日本 🇯🇵",
+        "日本 🇯🇵自动",
+        "新加坡 🇸🇬",
         "新加坡 🇸🇬自动",
-        "direct-out"
+        "美国 🇺🇸",
+        "美国 🇺🇸自动",
+        "韩国 🇰🇷",
+        "韩国 🇰🇷自动",
+        "英国 🇬🇧",
+        "英国 🇬🇧自动",
+        "德国 🇩🇪",
+        "德国 🇩🇪自动",
+        "加拿大 🇨🇦",
+        "加拿大 🇨🇦自动",
+        "印度 🇮🇳",
+        "印度 🇮🇳自动",
+        "俄罗斯 🇷🇺",
+        "俄罗斯 🇷🇺自动",
+        "法国 🇫🇷",
+        "法国 🇫🇷自动",
+        "荷兰 🇳🇱",
+        "荷兰 🇳🇱自动",
+        "土耳其 🇹🇷",
+        "土耳其 🇹🇷自动",
+        "巴西 🇧🇷",
+        "巴西 🇧🇷自动",
+        "direct-out",
+        "block"
       ],
       "default": "节点选择"
     },
@@ -201,10 +2499,39 @@
       "outbounds": [
         "节点选择",
         "全部 🌏",
-        "新加坡 🇸🇬",
         "全部 🌏自动",
+        "香港 🇭🇰",
+        "香港 🇭🇰自动",
+        "台湾 🇹🇼",
+        "台湾 🇹🇼自动",
+        "日本 🇯🇵",
+        "日本 🇯🇵自动",
+        "新加坡 🇸🇬",
         "新加坡 🇸🇬自动",
-        "direct-out"
+        "美国 🇺🇸",
+        "美国 🇺🇸自动",
+        "韩国 🇰🇷",
+        "韩国 🇰🇷自动",
+        "英国 🇬🇧",
+        "英国 🇬🇧自动",
+        "德国 🇩🇪",
+        "德国 🇩🇪自动",
+        "加拿大 🇨🇦",
+        "加拿大 🇨🇦自动",
+        "印度 🇮🇳",
+        "印度 🇮🇳自动",
+        "俄罗斯 🇷🇺",
+        "俄罗斯 🇷🇺自动",
+        "法国 🇫🇷",
+        "法国 🇫🇷自动",
+        "荷兰 🇳🇱",
+        "荷兰 🇳🇱自动",
+        "土耳其 🇹🇷",
+        "土耳其 🇹🇷自动",
+        "巴西 🇧🇷",
+        "巴西 🇧🇷自动",
+        "direct-out",
+        "block"
       ],
       "default": "节点选择"
     },
@@ -214,10 +2541,39 @@
       "outbounds": [
         "节点选择",
         "全部 🌏",
-        "新加坡 🇸🇬",
         "全部 🌏自动",
+        "香港 🇭🇰",
+        "香港 🇭🇰自动",
+        "台湾 🇹🇼",
+        "台湾 🇹🇼自动",
+        "日本 🇯🇵",
+        "日本 🇯🇵自动",
+        "新加坡 🇸🇬",
         "新加坡 🇸🇬自动",
-        "direct-out"
+        "美国 🇺🇸",
+        "美国 🇺🇸自动",
+        "韩国 🇰🇷",
+        "韩国 🇰🇷自动",
+        "英国 🇬🇧",
+        "英国 🇬🇧自动",
+        "德国 🇩🇪",
+        "德国 🇩🇪自动",
+        "加拿大 🇨🇦",
+        "加拿大 🇨🇦自动",
+        "印度 🇮🇳",
+        "印度 🇮🇳自动",
+        "俄罗斯 🇷🇺",
+        "俄罗斯 🇷🇺自动",
+        "法国 🇫🇷",
+        "法国 🇫🇷自动",
+        "荷兰 🇳🇱",
+        "荷兰 🇳🇱自动",
+        "土耳其 🇹🇷",
+        "土耳其 🇹🇷自动",
+        "巴西 🇧🇷",
+        "巴西 🇧🇷自动",
+        "direct-out",
+        "block"
       ],
       "default": "节点选择"
     }

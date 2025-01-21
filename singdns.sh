@@ -15,12 +15,19 @@ LOG_DIR="/var/log/singdns"
 WEB_DIR="$INSTALL_DIR/web"
 DATA_DIR="$INSTALL_DIR/data"
 
+# 配置变量
+SINGDNS_PID="/var/run/singdns.pid"
+SINGBOX_PID="/var/run/singbox.pid"
+SINGDNS_LOG="$LOG_DIR/singdns.log"
+SINGBOX_LOG="$LOG_DIR/singbox.log"
+
 # 检查是否为root用户
 check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        echo -e "${RED}错误：请使用root用户运行此脚本${NC}"
-        exit 1
+    if [ "$(id -u)" != "0" ]; then
+        echo "${RED}错误：请使用root用户运行此脚本${NC}"
+        return 1
     fi
+    return 0
 }
 
 # 获取本机IP地址
@@ -39,6 +46,16 @@ get_ip() {
     fi
     
     echo "$ip"
+}
+
+# 检查进程是否运行
+check_process() {
+    if [ -f "$1" ]; then
+        if kill -0 "$(cat "$1")" >/dev/null 2>&1; then
+            return 0
+        fi
+    fi
+    return 1
 }
 
 # 检查服务状态
@@ -64,25 +81,20 @@ check_status() {
     fi
     
     # 检查后端服务
-    local pid
-    pid=$(pgrep -x "singdns")
-    if [ -n "$pid" ]; then
-        echo -e "${GREEN}SingDNS 服务正在运行 (PID: $pid)${NC}"
-        # 显示进程信息
-        ps -p $pid -o pid,ppid,cmd
+    if check_process "$SINGDNS_PID"; then
+        echo -e "${GREEN}SingDNS 后端 - 运行中 (PID: $(cat "$SINGDNS_PID"))${NC}"
+        status=1
     else
-        echo -e "${RED}SingDNS 服务未运行${NC}"
+        echo -e "${RED}SingDNS 后端 - 未运行${NC}"
         status=1
     fi
     
     # 检查 sing-box 服务
-    pid=$(pgrep -f "sing-box.*run.*-c")
-    if [ -n "$pid" ]; then
-        echo -e "${GREEN}sing-box 服务正在运行 (PID: $pid)${NC}"
-        # 显示进程信息
-        ps -p $pid -o pid,ppid,cmd
+    if check_process "$SINGBOX_PID"; then
+        echo -e "${GREEN}Sing-Box - 运行中 (PID: $(cat "$SINGBOX_PID"))${NC}"
+        status=1
     else
-        echo -e "${RED}sing-box 服务未运行${NC}"
+        echo -e "${RED}Sing-Box - 未运行${NC}"
         status=1
     fi
 
@@ -128,33 +140,50 @@ check_system_resources() {
     df -h "$INSTALL_DIR"
 }
 
-# 启动后端服务
+# 启动SingDNS后端
 start_backend() {
-    echo -e "${YELLOW}启动后端服务...${NC}"
+    echo "${BLUE}启动 SingDNS 后端...${NC}"
     
-    # 检查是否已经运行
-    local pid
-    pid=$(pgrep -x "singdns")
-    if [ -n "$pid" ]; then
-        echo -e "${YELLOW}后端服务已在运行 (PID: $pid)${NC}"
+    if check_process "$SINGDNS_PID"; then
+        echo "${YELLOW}SingDNS 后端已在运行${NC}"
         return 0
     fi
     
-    cd "$INSTALL_DIR" || exit 1
-    
-    # 启动主程序
-    nohup ./singdns </dev/null >>"$LOG_DIR/backend.log" 2>&1 &
+    # 启动后端服务
+    nohup "$INSTALL_DIR/singdns" -c "$INSTALL_DIR/configs/sing-box/config.json" > "$SINGDNS_LOG" 2>&1 &
+    echo $! > "$SINGDNS_PID"
     
     # 等待服务启动
     sleep 2
-    
-    # 检查是否成功启动
-    if pgrep -x "singdns" > /dev/null; then
-        pid=$(pgrep -x "singdns")
-        echo -e "${GREEN}后端服务启动成功 (PID: $pid)${NC}"
+    if check_process "$SINGDNS_PID"; then
+        echo "${GREEN}SingDNS 后端启动成功${NC}"
         return 0
     else
-        echo -e "${RED}后端服务启动失败${NC}"
+        echo "${RED}SingDNS 后端启动失败${NC}"
+        return 1
+    fi
+}
+
+# 启动Sing-Box
+start_singbox() {
+    echo "${BLUE}启动 Sing-Box...${NC}"
+    
+    if check_process "$SINGBOX_PID"; then
+        echo "${YELLOW}Sing-Box 已在运行${NC}"
+        return 0
+    fi
+    
+    # 启动Sing-Box
+    nohup "$INSTALL_DIR/bin/sing-box" run -c "$INSTALL_DIR/configs/sing-box/config.json" > "$SINGBOX_LOG" 2>&1 &
+    echo $! > "$SINGBOX_PID"
+    
+    # 等待服务启动
+    sleep 2
+    if check_process "$SINGBOX_PID"; then
+        echo "${GREEN}Sing-Box 启动成功${NC}"
+        return 0
+    else
+        echo "${RED}Sing-Box 启动失败${NC}"
         return 1
     fi
 }
@@ -201,76 +230,41 @@ start_frontend() {
     fi
 }
 
-# 启动服务
-start_service() {
-    echo -e "${YELLOW}正在启动 SingDNS...${NC}"
+# 启动所有服务
+start() {
+    check_root || return 1
     
     # 创建日志目录
     mkdir -p "$LOG_DIR"
+    chmod 755 "$LOG_DIR"
     
-    # 启动后端
-    start_backend || {
-        echo -e "${RED}启动失败：后端服务启动出错${NC}"
-        return 1
-    }
+    # 启动服务
+    start_backend || return 1
+    start_singbox || return 1
+    start_frontend || return 1
     
-    # 启动前端
-    start_frontend || {
-        echo -e "${RED}启动失败：前端服务启动出错${NC}"
-        stop_backend
-        return 1
-    }
-    
-    if check_status > /dev/null; then
-        echo -e "${GREEN}SingDNS 启动成功！${NC}"
-        local_ip=$(get_ip)
-        if [ -n "$local_ip" ]; then
-            echo -e "${GREEN}前端本机访问: http://localhost:3000${NC}"
-            echo -e "${GREEN}前端远程访问: http://${local_ip}:3000${NC}"
-        else
-            echo -e "${GREEN}前端访问地址: http://<ip>:3000${NC}"
-        fi
-    else
-        echo -e "${RED}SingDNS 启动失败，请查看日志${NC}"
-        echo -e "${YELLOW}使用 'singdns logs' 查看详细日志${NC}"
-        stop_service
-    fi
+    echo "${GREEN}所有服务启动完成${NC}"
+    return 0
 }
 
-# 停止后端服务
-stop_backend() {
-    # 停止主程序
-    local pid
-    pid=$(pgrep -x "singdns")
-    if [ -n "$pid" ]; then
-        echo -e "${YELLOW}停止 SingDNS 主程序 (PID: $pid)${NC}"
-        kill $pid
-        local count=0
-        while kill -0 $pid 2>/dev/null && [ $count -lt 5 ]; do
-            sleep 1
-            count=$((count + 1))
-        done
-        if kill -0 $pid 2>/dev/null; then
-            echo -e "${YELLOW}强制停止 SingDNS 主程序${NC}"
-            kill -9 $pid 2>/dev/null
-        fi
-    fi
+# 停止服务
+stop() {
+    check_root || return 1
     
-    # 停止 sing-box
-    pid=$(pgrep -f "sing-box.*run.*-c")
-    if [ -n "$pid" ]; then
-        echo -e "${YELLOW}停止 sing-box 服务 (PID: $pid)${NC}"
-        kill $pid
-        local count=0
-        while kill -0 $pid 2>/dev/null && [ $count -lt 5 ]; do
-            sleep 1
-            count=$((count + 1))
-        done
-        if kill -0 $pid 2>/dev/null; then
-            echo -e "${YELLOW}强制停止 sing-box 服务${NC}"
-            kill -9 $pid 2>/dev/null
-        fi
-    fi
+    stop_service "$SINGDNS_PID" "SingDNS后端"
+    stop_service "$SINGBOX_PID" "Sing-Box"
+    
+    echo "${GREEN}所有服务已停止${NC}"
+    return 0
+}
+
+# 重启服务
+restart() {
+    check_root || return 1
+    
+    stop
+    sleep 2
+    start
 }
 
 # 停止前端服务
@@ -288,63 +282,32 @@ stop_frontend() {
 
 # 停止服务
 stop_service() {
-    echo -e "${YELLOW}正在停止 SingDNS...${NC}"
+    local pid_file="$1"
+    local service_name="$2"
     
-    # 停止后端
-    stop_backend
-    
-    # 停止前端
-    stop_frontend
-    
-    sleep 1
-    
-    if ! check_status > /dev/null; then
-        echo -e "${GREEN}SingDNS 服务已停止${NC}"
+    if [ -f "$pid_file" ]; then
+        echo "${BLUE}停止 $service_name...${NC}"
+        if kill "$(cat "$pid_file")" 2>/dev/null; then
+            rm -f "$pid_file"
+            echo "${GREEN}$service_name 已停止${NC}"
+        else
+            echo "${RED}停止 $service_name 失败${NC}"
+            return 1
+        fi
     else
-        echo -e "${RED}SingDNS 服务停止失败${NC}"
+        echo "${YELLOW}$service_name 未运行${NC}"
     fi
+    return 0
 }
 
 # 查看日志
-view_logs() {
-    local log_file
-    local lines=50
-    
-    case "$1" in
-        "frontend")
-            log_file="$LOG_DIR/frontend.log"
-            ;;
-        "backend")
-            log_file="$LOG_DIR/backend.log"
-            ;;
-        *)
-            echo -e "${YELLOW}=== 前端日志 ===${NC}"
-            if [ -f "$LOG_DIR/frontend.log" ]; then
-                tail -n 20 "$LOG_DIR/frontend.log"
-            else
-                echo -e "${RED}前端日志文件不存在${NC}"
-            fi
-            echo -e "\n${YELLOW}=== 后端日志 ===${NC}"
-            if [ -f "$LOG_DIR/backend.log" ]; then
-                tail -n 20 "$LOG_DIR/backend.log"
-            else
-                echo -e "${RED}后端日志文件不存在${NC}"
-            fi
-            return
-            ;;
-    esac
-    
+logs() {
+    local log_file="$1"
     if [ -f "$log_file" ]; then
-        if [ "$2" = "follow" ]; then
-            tail -f "$log_file"
-        else
-            if [ -n "$2" ] && [[ "$2" =~ ^[0-9]+$ ]]; then
-                lines="$2"
-            fi
-            tail -n "$lines" "$log_file"
-        fi
+        tail -f "$log_file" | cat
     else
-        echo -e "${RED}日志文件不存在：$log_file${NC}"
+        echo "${RED}日志文件不存在: $log_file${NC}"
+        return 1
     fi
 }
 
@@ -443,7 +406,7 @@ restore_config() {
     echo -e "${YELLOW}正在恢复配置...${NC}"
     
     # 停止服务
-    stop_service
+    stop
     
     # 创建临时目录
     local temp_dir="/tmp/singdns_restore_temp"
@@ -496,11 +459,11 @@ main() {
         case $choice in
             1)
                 check_root
-                start_service
+                start
                 ;;
             2)
                 check_root
-                stop_service
+                stop
                 ;;
             3)
                 check_status
@@ -541,27 +504,32 @@ if [ $# -gt 0 ]; then
     case $1 in
         start)
             check_root
-            start_service
+            start
             ;;
         stop)
             check_root
-            stop_service
+            stop
             ;;
         restart)
             check_root
-            stop_service
-            sleep 2
-            start_service
+            restart
             ;;
         status)
             check_status
             ;;
         logs)
-            if [ "$2" = "frontend" ] || [ "$2" = "backend" ]; then
-                view_logs "$2" "$3"
-            else
-                view_logs
-            fi
+            case "$2" in
+                backend)
+                    logs "$SINGDNS_LOG"
+                    ;;
+                singbox)
+                    logs "$SINGBOX_LOG"
+                    ;;
+                *)
+                    echo "用法: $0 logs {backend|singbox}"
+                    exit 1
+                    ;;
+            esac
             ;;
         ports)
             check_ports

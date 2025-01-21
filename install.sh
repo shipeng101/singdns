@@ -33,7 +33,7 @@ download_latest_release() {
     if [ -z "$VERSION" ]; then
         echo "${RED}获取版本信息失败${NC}"
         return 1
-    }
+    fi
     
     echo "${BLUE}最新版本: ${VERSION}${NC}"
     
@@ -47,7 +47,7 @@ download_latest_release() {
     if ! curl -L -o singdns.tar.gz "$DOWNLOAD_URL"; then
         echo "${RED}下载失败${NC}"
         return 1
-    }
+    fi
     
     # 解压
     echo "${BLUE}解压安装包...${NC}"
@@ -158,10 +158,10 @@ install_singdns() {
     if ! download_latest_release; then
         echo "${RED}下载失败${NC}"
         return 1
-    }
+    fi
     
     # 创建必要的目录
-    mkdir -p "$INSTALL_DIR/bin/web/yacd"
+    mkdir -p "$INSTALL_DIR/bin/web"
     mkdir -p "$INSTALL_DIR/web"
     mkdir -p "$INSTALL_DIR/configs/sing-box/rules"
     mkdir -p "$LOG_DIR"

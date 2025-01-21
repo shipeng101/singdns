@@ -114,17 +114,45 @@ start_backend() {
         return 0
     fi
     
-    # 启动后端服务
-    nohup "$INSTALL_DIR/singdns" -c "$INSTALL_DIR/configs/sing-box/config.json" > "$SINGDNS_LOG" 2>&1 &
+    # 检查可执行文件
+    if [ ! -x "$INSTALL_DIR/singdns" ]; then
+        echo "${RED}错误：singdns 程序不存在或没有执行权限${NC}"
+        return 1
+    fi
+    
+    # 检查配置文件
+    if [ ! -f "$INSTALL_DIR/configs/sing-box/config.json" ]; then
+        echo "${RED}错误：配置文件不存在${NC}"
+        return 1
+    fi
+    
+    # 创建日志目录
+    mkdir -p "$(dirname "$SINGDNS_LOG")"
+    
+    # 启动后端服务并记录详细日志
+    echo "${BLUE}正在启动服务，日志输出到: $SINGDNS_LOG${NC}"
+    cd "$INSTALL_DIR" || {
+        echo "${RED}错误：无法切换到安装目录${NC}"
+        return 1
+    }
+    
+    # 启动服务并记录详细输出
+    nohup ./singdns -c ./configs/sing-box/config.json > "$SINGDNS_LOG" 2>&1 &
     echo $! > "$SINGDNS_PID"
     
     # 等待服务启动
     sleep 2
     if check_process "$SINGDNS_PID"; then
         echo "${GREEN}SingDNS 后端启动成功${NC}"
+        # 显示最近的日志
+        echo "${BLUE}最近的日志输出：${NC}"
+        tail -n 5 "$SINGDNS_LOG"
         return 0
     else
         echo "${RED}SingDNS 后端启动失败${NC}"
+        echo "${RED}错误日志：${NC}"
+        tail -n 10 "$SINGDNS_LOG"
+        rm -f "$SINGDNS_PID"
         return 1
     fi
 }

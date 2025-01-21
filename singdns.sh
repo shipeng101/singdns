@@ -270,6 +270,24 @@ logs() {
     fi
 }
 
+# 查看指定类型的日志
+view_logs() {
+    local type="$1"
+    case "$type" in
+        frontend)
+            logs "$LOG_DIR/frontend.log"
+            ;;
+        backend)
+            logs "$SINGDNS_LOG"
+            ;;
+        *)
+            echo "${RED}无效的日志类型${NC}"
+            echo "用法: view_logs {frontend|backend}"
+            return 1
+            ;;
+    esac
+}
+
 # 查看端口占用
 check_ports() {
     echo -e "${BLUE}=== 端口占用情况 ===${NC}"

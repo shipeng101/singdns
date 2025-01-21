@@ -1,6 +1,0 @@
---2025-01-15 14:00:52--  https://go.dev/dl/go1.21.6.linux-amd64.tar.gz
-Resolving go.dev (go.dev)... 216.239.36.21, 216.239.34.21, 216.239.38.21, ...
-Connecting to go.dev (go.dev)|216.239.36.21|:443... failed: Connection timed out.
-Connecting to go.dev (go.dev)|216.239.34.21|:443... connected.
-OpenSSL: error:0A000126:SSL routines::unexpected eof while reading
-Unable to establish SSL connection.

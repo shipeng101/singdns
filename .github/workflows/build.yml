@@ -1,0 +1,70 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Build Frontend
+      working-directory: web
+      run: |
+        npm install
+        npm run build
+        
+    - name: Build Backend
+      run: |
+        go build -o singdns cmd/singdns/main.go
+        
+    - name: Prepare Release Files
+      run: |
+        mkdir -p release
+        # 复制主程序
+        cp singdns release/
+        
+        # 复制前端文件
+        cp -r web/build release/web
+        
+        # 完整复制 bin 目录（包括所有子目录和文件）
+        cp -r bin release/
+        
+        # 完整复制 configs 目录（包括所有子目录和文件）
+        cp -r configs release/
+        
+        # 复制脚本文件
+        cp install.sh release/
+        cp singdns.sh release/
+        chmod +x release/install.sh
+        chmod +x release/singdns.sh
+        
+        # 显示打包内容
+        echo "Release contents:"
+        ls -R release/
+        
+        # 创建压缩包
+        cd release && tar -czf ../singdns.tar.gz *
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: singdns.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

@@ -1,202 +1,182 @@
-#!/bin/sh
+#!/bin/bash
 
-# 设置颜色
+# 设置变量
+INSTALL_DIR="/usr/local/singdns"
+LOG_DIR="/var/log/singdns"
+SERVICE_NAME="singdns"
+
+# 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 NC='\033[0m'
 
-# 配置变量
-INSTALL_DIR="/usr/local/singdns"
-LOG_DIR="/var/log/singdns"
-TEMP_DIR="/tmp/singdns_temp"
-MIN_DISK_SPACE=1024  # 需要的最小磁盘空间(MB)
-
-# 检查是否为root用户
+# 检查是否为 root 用户
 check_root() {
     if [ "$(id -u)" != "0" ]; then
-        echo "${RED}错误：请使用root用户运行此脚本${NC}"
-        return 1
+        echo -e "${RED}错误: 必须使用 root 权限运行此脚本${NC}"
+        exit 1
     fi
-    return 0
 }
 
-# 检测系统类型
-detect_os() {
+# 检查系统类型
+check_system() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
         OS=$ID
-    elif [ -f /etc/debian_version ]; then
-        OS="debian"
-    elif [ -f /etc/redhat-release ]; then
-        OS="rhel"
     else
-        OS="unknown"
+        echo -e "${RED}无法确定操作系统类型${NC}"
+        exit 1
     fi
-    echo $OS
 }
 
-# 安装系统依赖
-install_system_dependencies() {
-    echo "${BLUE}安装系统依赖...${NC}"
+# 检查并安装依赖
+check_dependencies() {
+    echo -e "${YELLOW}检查系统依赖...${NC}"
+    local missing_deps=()
     
-    OS=$(detect_os)
-    case $OS in
-        "alpine")
-            apk update
-            apk add --no-cache curl wget git sqlite busybox iptables
-            ;;
-        "ubuntu"|"debian")
-            apt-get update
-            apt-get install -y curl wget git sqlite3 busybox iptables
-            ;;
-        "centos"|"rhel"|"fedora")
-            yum -y update
-            yum -y install curl wget git sqlite busybox iptables
-            ;;
-        *)
-            echo "${RED}不支持的操作系统${NC}"
-            return 1
-            ;;
-    esac
-    
-    # 检查 busybox 是否安装成功
-    if ! command -v busybox > /dev/null; then
-        echo "${RED}错误：busybox 安装失败${NC}"
-        return 1
-    fi
-    
-    # 检查 iptables 是否安装成功
-    if ! command -v iptables > /dev/null; then
-        echo "${RED}错误：iptables 安装失败${NC}"
-        return 1
-    fi
-    
-    echo "${GREEN}系统依赖安装完成${NC}"
-    return 0
-}
-
-# 检查系统要求
-check_system_requirements() {
-    echo "${BLUE}检查系统要求...${NC}"
-    
-    # 检查磁盘空间
-    AVAILABLE_SPACE=$(df -m "$INSTALL_DIR" | awk 'NR==2 {print $4}')
-    if [ "$AVAILABLE_SPACE" -lt "$MIN_DISK_SPACE" ]; then
-        echo "${RED}错误：磁盘空间不足，需要至少 ${MIN_DISK_SPACE}MB 可用空间${NC}"
-        return 1
-    fi
-    
-    # 检查必要命令
-    for cmd in curl wget git busybox iptables; do
-        if ! command -v $cmd >/dev/null 2>&1; then
-            echo "${YELLOW}警告：未找到命令 '$cmd'，将尝试安装${NC}"
+    # 检查必要的命令
+    local deps=("curl" "tar" "systemctl" "busybox")
+    for dep in "${deps[@]}"; do
+        if ! command -v $dep &> /dev/null; then
+            missing_deps+=($dep)
         fi
     done
     
-    # 检查系统服务
-    if [ -f "/proc/sys/net/ipv4/ip_forward" ]; then
-        # 检查 IP 转发是否启用
-        if [ "$(cat /proc/sys/net/ipv4/ip_forward)" != "1" ]; then
-            echo "${YELLOW}警告：IP 转发未启用，将尝试启用${NC}"
-            echo "1" > /proc/sys/net/ipv4/ip_forward 2>/dev/null || {
-                echo "${RED}错误：无法启用 IP 转发${NC}"
-                return 1
-            }
-        fi
-    else
-        echo "${RED}错误：系统不支持 IP 转发${NC}"
-        return 1
+    # 如果有缺失的依赖，尝试安装
+    if [ ${#missing_deps[@]} -ne 0 ]; then
+        echo -e "${YELLOW}安装缺失的依赖: ${missing_deps[*]}${NC}"
+        case $OS in
+            ubuntu|debian)
+                apt update
+                apt install -y ${missing_deps[@]}
+                ;;
+            centos|rhel|fedora)
+                yum install -y ${missing_deps[@]}
+                ;;
+            *)
+                echo -e "${RED}不支持的操作系统${NC}"
+                exit 1
+                ;;
+        esac
     fi
     
-    return 0
+    echo -e "${GREEN}所有依赖已满足${NC}"
 }
 
-# 安装SingDNS
-install_singdns() {
-    echo "${BLUE}开始安装 SingDNS...${NC}"
-    
-    # 检查系统要求
-    check_system_requirements || return 1
+# 安装函数
+install() {
+    echo -e "${YELLOW}开始安装 SingDNS...${NC}"
     
     # 创建必要的目录
-    mkdir -p "$INSTALL_DIR/bin/web"
-    mkdir -p "$INSTALL_DIR/web"
-    mkdir -p "$INSTALL_DIR/configs/sing-box/rules"
-    mkdir -p "$LOG_DIR"
+    echo -e "${YELLOW}创建目录...${NC}"
+    mkdir -p $INSTALL_DIR
+    mkdir -p $LOG_DIR
     
     # 复制文件
-    echo "${YELLOW}复制文件...${NC}"
-    cp -r ./* "$INSTALL_DIR/"
+    echo -e "${YELLOW}复制文件...${NC}"
+    cp -r bin/* $INSTALL_DIR/
+    cp -r configs $INSTALL_DIR/
+    cp -r web $INSTALL_DIR/
+    cp singdns $INSTALL_DIR/
+    cp singdns.sh /usr/local/bin/singdns
     
     # 设置权限
-    echo "${YELLOW}设置文件权限...${NC}"
-    find "$INSTALL_DIR" -type f -exec chmod 644 {} \;
-    find "$INSTALL_DIR" -type d -exec chmod 755 {} \;
-    chmod +x "$INSTALL_DIR/singdns"
-    chmod +x "$INSTALL_DIR/singdns.sh"
-    chmod +x "$INSTALL_DIR/bin/sing-box"
-    chmod -R 755 "$INSTALL_DIR/bin"
-    chmod -R 755 "$INSTALL_DIR/configs"
-    chmod 755 "$LOG_DIR"
+    echo -e "${YELLOW}设置权限...${NC}"
+    chmod +x $INSTALL_DIR/singdns
+    chmod +x /usr/local/bin/singdns
+    chown -R root:root $INSTALL_DIR
+    chown -R root:root $LOG_DIR
     
-    # 创建符号链接
-    ln -sf "$INSTALL_DIR/singdns.sh" "/usr/local/bin/singdns"
+    # 创建 systemd 服务
+    echo -e "${YELLOW}创建系统服务...${NC}"
+    cat > /etc/systemd/system/$SERVICE_NAME.service << EOF
+[Unit]
+Description=SingDNS Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=$INSTALL_DIR/singdns
+WorkingDirectory=$INSTALL_DIR
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
     
-    echo "${GREEN}SingDNS 安装完成${NC}"
-    return 0
+    # 重新加载 systemd
+    systemctl daemon-reload
+    
+    echo -e "${GREEN}安装完成！${NC}"
+    echo -e "${GREEN}使用以下命令管理服务：${NC}"
+    echo -e "${YELLOW}启动服务: ${NC}systemctl start $SERVICE_NAME"
+    echo -e "${YELLOW}停止服务: ${NC}systemctl stop $SERVICE_NAME"
+    echo -e "${YELLOW}查看状态: ${NC}systemctl status $SERVICE_NAME"
+    echo -e "${YELLOW}开机启动: ${NC}systemctl enable $SERVICE_NAME"
 }
 
 # 卸载函数
-uninstall_singdns() {
-    echo "${YELLOW}开始卸载 SingDNS...${NC}"
+uninstall() {
+    echo -e "${YELLOW}开始卸载 SingDNS...${NC}"
     
     # 停止服务
-    if command -v singdns > /dev/null; then
-        singdns stop
-        sleep 2
+    if systemctl is-active --quiet $SERVICE_NAME; then
+        echo -e "${YELLOW}停止服务...${NC}"
+        systemctl stop $SERVICE_NAME
     fi
     
-    # 删除文件
-    rm -rf "$INSTALL_DIR"
-    rm -f "/usr/local/bin/singdns"
-    rm -rf "$LOG_DIR"
+    # 禁用服务
+    if systemctl is-enabled --quiet $SERVICE_NAME; then
+        echo -e "${YELLOW}禁用服务...${NC}"
+        systemctl disable $SERVICE_NAME
+    fi
     
-    echo "${GREEN}SingDNS 已成功卸载${NC}"
-    return 0
+    # 删除服务文件
+    echo -e "${YELLOW}删除服务文件...${NC}"
+    rm -f /etc/systemd/system/$SERVICE_NAME.service
+    systemctl daemon-reload
+    
+    # 删除安装文件
+    echo -e "${YELLOW}删除安装文件...${NC}"
+    rm -rf $INSTALL_DIR
+    rm -rf $LOG_DIR
+    rm -f /usr/local/bin/singdns
+    
+    echo -e "${GREEN}卸载完成！${NC}"
 }
 
-# 主函数
-main() {
-    echo "${YELLOW}欢迎使用 SingDNS 安装程序${NC}"
-    echo "系统类型: $(detect_os)"
+# 显示菜单
+show_menu() {
+    echo -e "${GREEN}=== SingDNS 安装管理器 ===${NC}"
+    echo -e "${YELLOW}1.${NC} 安装 SingDNS"
+    echo -e "${YELLOW}2.${NC} 卸载 SingDNS"
+    echo -e "${YELLOW}3.${NC} 退出"
+    echo
+    read -p "请选择操作 [1-3]: " choice
     
-    # 检查root权限
-    check_root || exit 1
-    
-    # 安装系统依赖
-    install_system_dependencies || exit 1
-    
-    # 安装SingDNS
-    install_singdns || exit 1
-    
-    # 显示安装成功信息
-    echo "${GREEN}SingDNS 安装成功！${NC}"
-    echo "${GREEN}使用 'singdns' 命令来管理 SingDNS${NC}"
-    echo "${YELLOW}提示: 使用 'singdns start' 启动服务${NC}"
-    echo "安装目录: ${INSTALL_DIR}"
-    echo "日志目录: ${LOG_DIR}"
-    
-    # 询问是否立即启动服务
-    printf "是否立即启动服务？[y/N] "
-    read -r answer
-    case $answer in
-        [Yy]*)
-            singdns start
+    case $choice in
+        1)
+            check_root
+            check_system
+            check_dependencies
+            install
+            ;;
+        2)
+            check_root
+            uninstall
+            ;;
+        3)
+            echo -e "${GREEN}再见！${NC}"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}无效的选择${NC}"
+            exit 1
             ;;
     esac
 }
 
-# 执行主函数
-main 
+# 主程序
+show_menu 

@@ -17,9 +17,7 @@ DATA_DIR="$INSTALL_DIR/data"
 
 # 配置变量
 SINGDNS_PID="/var/run/singdns.pid"
-SINGBOX_PID="/var/run/singbox.pid"
 SINGDNS_LOG="$LOG_DIR/singdns.log"
-SINGBOX_LOG="$LOG_DIR/singbox.log"
 
 # 检查是否为root用户
 check_root() {
@@ -69,7 +67,7 @@ check_status() {
     fi
     
     # 检查必要文件
-    if [ ! -f "$INSTALL_DIR/singdns" ] || [ ! -f "$BIN_DIR/sing-box" ]; then
+    if [ ! -f "$INSTALL_DIR/singdns" ]; then
         echo -e "${RED}错误：关键程序文件缺失${NC}"
         return 1
     fi
@@ -88,15 +86,6 @@ check_status() {
         echo -e "${RED}SingDNS 后端 - 未运行${NC}"
         status=1
     fi
-    
-    # 检查 sing-box 服务
-    if check_process "$SINGBOX_PID"; then
-        echo -e "${GREEN}Sing-Box - 运行中 (PID: $(cat "$SINGBOX_PID"))${NC}"
-        status=1
-    else
-        echo -e "${RED}Sing-Box - 未运行${NC}"
-        status=1
-    fi
 
     # 检查前端服务
     if pgrep -f "busybox httpd -f -p 3000" > /dev/null; then
@@ -113,31 +102,7 @@ check_status() {
         status=1
     fi
 
-    # 检查系统资源
-    check_system_resources
-
     return $status
-}
-
-# 检查系统资源
-check_system_resources() {
-    echo -e "\n${BLUE}系统资源使用情况：${NC}"
-    
-    # CPU 使用率
-    if command -v top >/dev/null 2>&1; then
-        echo -e "${YELLOW}CPU 使用率：${NC}"
-        top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}' | awk '{print $1"%"}'
-    fi
-    
-    # 内存使用情况
-    if command -v free >/dev/null 2>&1; then
-        echo -e "${YELLOW}内存使用情况：${NC}"
-        free -h | grep "Mem:"
-    fi
-    
-    # 磁盘使用情况
-    echo -e "${YELLOW}磁盘使用情况：${NC}"
-    df -h "$INSTALL_DIR"
 }
 
 # 启动SingDNS后端
@@ -160,30 +125,6 @@ start_backend() {
         return 0
     else
         echo "${RED}SingDNS 后端启动失败${NC}"
-        return 1
-    fi
-}
-
-# 启动Sing-Box
-start_singbox() {
-    echo "${BLUE}启动 Sing-Box...${NC}"
-    
-    if check_process "$SINGBOX_PID"; then
-        echo "${YELLOW}Sing-Box 已在运行${NC}"
-        return 0
-    fi
-    
-    # 启动Sing-Box
-    nohup "$INSTALL_DIR/bin/sing-box" run -c "$INSTALL_DIR/configs/sing-box/config.json" > "$SINGBOX_LOG" 2>&1 &
-    echo $! > "$SINGBOX_PID"
-    
-    # 等待服务启动
-    sleep 2
-    if check_process "$SINGBOX_PID"; then
-        echo "${GREEN}Sing-Box 启动成功${NC}"
-        return 0
-    else
-        echo "${RED}Sing-Box 启动失败${NC}"
         return 1
     fi
 }
@@ -240,7 +181,6 @@ start() {
     
     # 启动服务
     start_backend || return 1
-    start_singbox || return 1
     start_frontend || return 1
     
     echo "${GREEN}所有服务启动完成${NC}"
@@ -252,19 +192,10 @@ stop() {
     check_root || return 1
     
     stop_service "$SINGDNS_PID" "SingDNS后端"
-    stop_service "$SINGBOX_PID" "Sing-Box"
+    stop_frontend
     
     echo "${GREEN}所有服务已停止${NC}"
     return 0
-}
-
-# 重启服务
-restart() {
-    check_root || return 1
-    
-    stop
-    sleep 2
-    start
 }
 
 # 停止前端服务
@@ -522,11 +453,8 @@ if [ $# -gt 0 ]; then
                 backend)
                     logs "$SINGDNS_LOG"
                     ;;
-                singbox)
-                    logs "$SINGBOX_LOG"
-                    ;;
                 *)
-                    echo "用法: $0 logs {backend|singbox}"
+                    echo "用法: $0 logs {backend}"
                     exit 1
                     ;;
             esac

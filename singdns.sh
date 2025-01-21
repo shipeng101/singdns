@@ -126,8 +126,9 @@ start_backend() {
         return 1
     fi
     
-    # 创建日志目录
+    # 创建日志目录和数据目录
     mkdir -p "$(dirname "$SINGDNS_LOG")"
+    mkdir -p "$DATA_DIR"
     
     # 启动后端服务并记录详细日志
     echo "${BLUE}正在启动服务，日志输出到: $SINGDNS_LOG${NC}"
@@ -137,7 +138,11 @@ start_backend() {
     }
     
     # 启动服务并记录详细输出
-    nohup ./singdns -c ./configs/sing-box/config.json > "$SINGDNS_LOG" 2>&1 &
+    nohup ./singdns \
+        -config ./configs/sing-box/config.json \
+        -db "$DATA_DIR/singdns.db" \
+        -log-level info \
+        > "$SINGDNS_LOG" 2>&1 &
     echo $! > "$SINGDNS_PID"
     
     # 等待服务启动

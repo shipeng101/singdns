@@ -1,20 +1,20 @@
 #!/bin/bash
 
+# 设置变量
+INSTALL_DIR="/usr/local/singdns"
+LOG_DIR="/var/log/singdns"
+SERVICE_NAME="singdns"
+
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# 安装目录
-INSTALL_DIR="/usr/local/singdns"
-LOG_DIR="/var/log/singdns"
-SERVICE_NAME="singdns"
-
 # 检查是否为root用户
 check_root() {
     if [ "$EUID" -ne 0 ]; then
-        echo -e "${RED}错误: 请使用 root 用户运行此脚本${NC}"
+        echo -e "${RED}错误: 请使用root用户运行此脚本${NC}"
         exit 1
     fi
 }
@@ -89,8 +89,8 @@ check_files() {
     fi
 }
 
-# 安装服务
-install_service() {
+# 安装函数
+install() {
     echo -e "${YELLOW}开始安装 SingDNS...${NC}"
     
     # 检查文件
@@ -108,29 +108,20 @@ install_service() {
     mkdir -p "$LOG_DIR"
     
     # 复制文件
-    echo "复制文件..."
-    # 复制主程序
-    cp singdns "$INSTALL_DIR/"
-    
-    # 复制管理脚本
+    echo -e "${YELLOW}复制文件...${NC}"
+    cp -r bin/* "$INSTALL_DIR/"
+    cp -r configs "$INSTALL_DIR/"
+    cp -r web "$INSTALL_DIR/"
     cp singdns.sh "$INSTALL_DIR/"
     
-    # 复制 bin 目录
-    cp -r bin "$INSTALL_DIR/"
-    
-    # 复制 configs 目录
-    cp -r configs "$INSTALL_DIR/"
-    
-    # 复制 web 目录
-    cp -r web "$INSTALL_DIR/"
-    
     # 设置权限
-    echo "设置权限..."
+    echo -e "${YELLOW}设置权限...${NC}"
     chmod +x "$INSTALL_DIR/singdns"
+    chmod +x "$INSTALL_DIR/sing-box"
     chmod +x "$INSTALL_DIR/singdns.sh"
-    chmod +x "$INSTALL_DIR/bin/sing-box"
     chown -R root:root "$INSTALL_DIR"
-    chown -R root:root "$LOG_DIR"
+    chmod 755 "$INSTALL_DIR"
+    chmod 755 "$LOG_DIR"
     
     # 创建软链接
     ln -sf "$INSTALL_DIR/singdns.sh" /usr/local/bin/singdns
@@ -157,7 +148,7 @@ EOF
     
     echo -e "${GREEN}安装完成！${NC}"
     echo -e "使用以下命令管理服务："
-    echo -e "直接运行管理面板: ${YELLOW}singdns${NC}"
+    echo -e "  ${YELLOW}singdns${NC} - 启动管理界面"
     echo -e "系统服务管理:"
     echo -e "  启动服务: ${YELLOW}systemctl start ${SERVICE_NAME}${NC}"
     echo -e "  停止服务: ${YELLOW}systemctl stop ${SERVICE_NAME}${NC}"
@@ -165,8 +156,8 @@ EOF
     echo -e "  开机启动: ${YELLOW}systemctl enable ${SERVICE_NAME}${NC}"
 }
 
-# 卸载服务
-uninstall_service() {
+# 卸载函数
+uninstall() {
     echo -e "${YELLOW}开始卸载 SingDNS...${NC}"
     
     # 停止服务
@@ -187,16 +178,15 @@ uninstall_service() {
 
 # 显示菜单
 show_menu() {
-    clear
-    echo -e "${GREEN}=== SingDNS 安装管理器 ===${NC}"
-    echo "1. 安装 SingDNS"
-    echo "2. 卸载 SingDNS"
+    echo -e "${GREEN}=== SingDNS 安装管理 ===${NC}"
+    echo "1. 安装"
+    echo "2. 卸载"
     echo "0. 退出"
     echo
-    echo -n "请选择操作 [0-2]: "
+    echo -n "请选择 [0-2]: "
 }
 
-# 主循环
+# 主函数
 main() {
     check_root
     
@@ -208,10 +198,10 @@ main() {
         case $choice in
             1)
                 check_dependencies
-                install_service
+                install
                 ;;
             2)
-                uninstall_service
+                uninstall
                 ;;
             0)
                 echo -e "${GREEN}再见！${NC}"
@@ -224,6 +214,7 @@ main() {
         
         echo
         read -n 1 -s -r -p "按任意键继续..."
+        echo
     done
 }
 

@@ -38,101 +38,150 @@ show_menu() {
     echo -n "请输入选项 [0-7]: "
 }
 
+# 检查后端服务状态
+check_backend() {
+    # 检查8080端口是否被占用
+    if netstat -tuln | grep -q ":8080 "; then
+        # 获取占用8080端口的进程PID
+        local pid=$(lsof -t -i:8080)
+        if [ -n "$pid" ]; then
+            echo "$pid" > "$PID_FILE"
+            return 0
+        fi
+    fi
+    
+    # 如果端口未被占用，清理 PID 文件
+    rm -f "$PID_FILE"
+    return 1
+}
+
+# 检查前端服务状态
+check_frontend() {
+    # 检查进程
+    local pid=$(ps aux | grep "[b]usybox.*httpd.*$FRONTEND_PORT" | grep -v "grep" | awk '{print $2}')
+    if [ -n "$pid" ]; then
+        echo "$pid" > "$FRONTEND_PID_FILE"
+        return 0
+    fi
+    
+    # 如果进程不存在，清理 PID 文件
+    rm -f "$FRONTEND_PID_FILE"
+    return 1
+}
+
 # 启动后端服务
 start_backend() {
-    if pgrep -x "singdns" > /dev/null; then
+    if check_backend; then
         echo -e "${YELLOW}后端服务已经在运行中${NC}"
         return 0
     fi
     
     echo -e "${YELLOW}正在启动后端服务...${NC}"
     cd $INSTALL_DIR
-    nohup ./singdns > "$LOG_DIR/backend.log" 2>&1 &
-    echo $! > $PID_FILE
+    ./singdns > "$LOG_DIR/backend.log" 2>&1 &
+    local pid=$!
+    echo $pid > $PID_FILE
     
     sleep 2
-    if pgrep -x "singdns" > /dev/null; then
+    if check_backend; then
         echo -e "${GREEN}后端服务启动成功${NC}"
     else
         echo -e "${RED}后端服务启动失败，请检查日志${NC}"
-        exit 1
+        tail -n 10 "$LOG_DIR/backend.log"
+        return 1
     fi
 }
 
 # 启动前端服务
 start_frontend() {
-    if pgrep -f "busybox httpd.*$FRONTEND_PORT" > /dev/null; then
+    if check_frontend; then
         echo -e "${YELLOW}前端服务已经在运行中${NC}"
         return 0
     fi
     
     echo -e "${YELLOW}正在启动前端服务...${NC}"
     cd $INSTALL_DIR/web
-    nohup busybox httpd -f -p $FRONTEND_PORT -h $INSTALL_DIR/web > "$LOG_DIR/frontend.log" 2>&1 &
-    echo $! > $FRONTEND_PID_FILE
+    busybox httpd -f -p $FRONTEND_PORT -h $INSTALL_DIR/web > "$LOG_DIR/frontend.log" 2>&1 &
+    local pid=$!
+    echo $pid > $FRONTEND_PID_FILE
     
     sleep 2
-    if pgrep -f "busybox httpd.*$FRONTEND_PORT" > /dev/null; then
+    if check_frontend; then
         echo -e "${GREEN}前端服务启动成功 - 访问 http://localhost:${FRONTEND_PORT}${NC}"
     else
         echo -e "${RED}前端服务启动失败，请检查日志${NC}"
-        exit 1
+        tail -n 10 "$LOG_DIR/frontend.log"
+        return 1
     fi
 }
 
 # 停止后端服务
 stop_backend() {
-    if ! pgrep -x "singdns" > /dev/null; then
+    if ! check_backend; then
         echo -e "${YELLOW}后端服务未在运行${NC}"
         return 0
     fi
     
     echo -e "${YELLOW}正在停止后端服务...${NC}"
-    if [ -f $PID_FILE ]; then
-        kill $(cat $PID_FILE)
+    local pid=$(lsof -t -i:8080)
+    if [ -n "$pid" ]; then
+        kill $pid
         rm -f $PID_FILE
-    else
-        pkill singdns
     fi
     
     sleep 2
-    if ! pgrep -x "singdns" > /dev/null; then
+    if ! check_backend; then
         echo -e "${GREEN}后端服务已停止${NC}"
     else
-        echo -e "${RED}后端服务停止失败${NC}"
-        exit 1
+        echo -e "${RED}后端服务停止失败，尝试强制终止${NC}"
+        local pid=$(lsof -t -i:8080)
+        if [ -n "$pid" ]; then
+            kill -9 $pid
+        fi
+        rm -f $PID_FILE
+        sleep 1
+        if ! check_backend; then
+            echo -e "${GREEN}后端服务已强制停止${NC}"
+        else
+            echo -e "${RED}后端服务无法停止${NC}"
+            return 1
+        fi
     fi
 }
 
 # 停止前端服务
 stop_frontend() {
-    if ! pgrep -f "busybox httpd.*$FRONTEND_PORT" > /dev/null; then
+    if ! check_frontend; then
         echo -e "${YELLOW}前端服务未在运行${NC}"
         return 0
     fi
     
     echo -e "${YELLOW}正在停止前端服务...${NC}"
-    if [ -f $FRONTEND_PID_FILE ]; then
-        kill $(cat $FRONTEND_PID_FILE)
-        rm -f $FRONTEND_PID_FILE
-    else
-        pkill -f "busybox httpd.*$FRONTEND_PORT"
-    fi
+    pkill -f "busybox.*httpd.*$FRONTEND_PORT"
+    rm -f $FRONTEND_PID_FILE
     
     sleep 2
-    if ! pgrep -f "busybox httpd.*$FRONTEND_PORT" > /dev/null; then
+    if ! check_frontend; then
         echo -e "${GREEN}前端服务已停止${NC}"
     else
-        echo -e "${RED}前端服务停止失败${NC}"
-        exit 1
+        echo -e "${RED}前端服务停止失败，尝试强制终止${NC}"
+        pkill -9 -f "busybox.*httpd.*$FRONTEND_PORT"
+        rm -f $FRONTEND_PID_FILE
+        sleep 1
+        if ! check_frontend; then
+            echo -e "${GREEN}前端服务已强制停止${NC}"
+        else
+            echo -e "${RED}前端服务无法停止${NC}"
+            return 1
+        fi
     fi
 }
 
 # 启动所有服务
 start() {
     check_root
-    start_backend
-    start_frontend
+    start_backend || return 1
+    start_frontend || return 1
 }
 
 # 停止所有服务
@@ -154,14 +203,16 @@ status() {
     echo -e "${BLUE}服务状态:${NC}"
     echo -e "------------------------"
     
-    if pgrep -x "singdns" > /dev/null; then
-        echo -e "后端服务: ${GREEN}运行中${NC}"
+    if check_backend; then
+        local pid=$(cat "$PID_FILE" 2>/dev/null)
+        echo -e "后端服务: ${GREEN}运行中${NC} (PID: $pid)"
     else
         echo -e "后端服务: ${RED}未运行${NC}"
     fi
     
-    if pgrep -f "busybox httpd.*$FRONTEND_PORT" > /dev/null; then
-        echo -e "前端服务: ${GREEN}运行中${NC} (http://localhost:${FRONTEND_PORT})"
+    if check_frontend; then
+        local pid=$(cat "$FRONTEND_PID_FILE" 2>/dev/null)
+        echo -e "前端服务: ${GREEN}运行中${NC} (http://localhost:${FRONTEND_PORT}, PID: $pid)"
     else
         echo -e "前端服务: ${RED}未运行${NC}"
     fi

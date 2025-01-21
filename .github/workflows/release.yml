@@ -93,13 +93,6 @@ jobs:
           mv "sing-box-${SING_BOX_VERSION}-linux-amd64/sing-box" ./sing-box
           chmod +x sing-box
 
-      - name: 下载 yacd 面板
-        run: |
-          mkdir -p bin/web/yacd
-          wget -O yacd.tar.gz "https://github.com/MetaCubeX/Yacd-meta/archive/gh-pages.tar.gz"
-          tar xzf yacd.tar.gz
-          mv Yacd-meta-gh-pages/* bin/web/yacd/
-
       - name: 准备配置目录
         run: |
           mkdir -p configs/sing-box/rules
@@ -130,15 +123,15 @@ jobs:
         run: |
           mkdir -p release/singdns
           # 创建目录结构
-          mkdir -p release/singdns/bin/web/yacd
+          mkdir -p release/singdns/bin/web
           mkdir -p release/singdns/web
           mkdir -p release/singdns/configs/sing-box/rules
           # 复制主程序
           cp singdns release/singdns/
           # 复制 sing-box 到 bin 目录
           cp sing-box release/singdns/bin/
-          # 复制面板到 bin/web 目录
-          cp -r bin/web/yacd/* release/singdns/bin/web/yacd/
+          # 复制所有面板到 bin/web 目录
+          cp -r bin/web/* release/singdns/bin/web/
           # 复制前端构建文件到 web 目录
           cp -r web/build/* release/singdns/web/
           # 复制配置文件和规则文件
